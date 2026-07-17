@@ -59,8 +59,7 @@ const FIELD_SECTIONS = [
         key: "decisivePoint",
         label: "決め手",
         type: "textarea",
-        personal: true,
-        placeholder: "自分がこの企業を志望する決め手をメモ",
+        personal: true
       },
     ],
   },
