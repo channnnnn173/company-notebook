@@ -17,11 +17,13 @@ import {
   AlertTriangle,
   Download,
   Upload,
-  Settings,
 } from "lucide-react";
 
+// ★ Supabase クライアントのインポート（パスは環境に合わせて調整してください）
+import { supabase } from "./supabaseClient";
+
 // ---------------------------------------------------------------------------
-// フィールド定義
+// フィールド定義（唯一の情報源）
 // ---------------------------------------------------------------------------
 const FIELD_SECTIONS = [
   {
@@ -32,13 +34,6 @@ const FIELD_SECTIONS = [
       { key: "features", label: "特徴", type: "textarea" },
       { key: "jobType", label: "希望職種・募集職種", type: "text" },
       { key: "salary", label: "平均年収", type: "number", unit: "万円" },
-      {
-        key: "myPageUrl",
-        label: "マイページURL",
-        type: "url",
-        personal: true,
-        placeholder: "https://...",
-      },
     ],
   },
   {
@@ -85,7 +80,7 @@ const FIELD_SECTIONS = [
         key: "overseasWork",
         label: "海外勤務",
         type: "select_with_note",
-        options: ["不明", "あり", "なし"],
+        options: ["あり", "なし","不明"],
         noteKey: "overseasWorkNote",
         notePlaceholder: "メモ（例：希望者のみ、拠点名 など）",
       },
@@ -93,13 +88,13 @@ const FIELD_SECTIONS = [
         key: "remoteWork",
         label: "リモートワーク",
         type: "select",
-        options: ["不明", "フル可", "一部可", "不可"],
+        options: [ "可", "一部可", "不可","不明"],
       },
       {
         key: "flexSystem",
         label: "フレックス制度",
         type: "select",
-        options: ["不明", "あり", "なし"],
+        options: [ "コア","フル", "なし","不明"],
       },
       {
         key: "noTransfer",
@@ -118,7 +113,14 @@ const FIELD_SECTIONS = [
   {
     title: "募集・採用",
     fields: [
-      { key: "internship", label: "インターン情報", type: "textarea", placeholder: "開催時期、内容、参加条件など" },
+      {
+      key: "myPageUrl",
+      label: "マイページURL",
+      type: "url",
+      personal: true,
+      placeholder: "https://... ",
+    },
+      { key: "internship", label: "インターン情報", type: "textarea" },
       {
         key: "recruitmentInfo",
         label: "採用情報",
@@ -140,27 +142,7 @@ const CONDITION_CHIPS = [
 ];
 
 const ALL_FIELDS = FIELD_SECTIONS.flatMap((s) => s.fields);
-const STORAGE_KEY = "company-notebook:companies:v2";
 const CUSTOM_FIELDS_STORAGE_KEY = "company-notebook:custom-fields:v1";
-const API_KEY_STORAGE_KEY = "company-notebook:api-key";
-
-// Webブラウザと独自環境の両方に対応するストレージラッパー
-const storageUtil = {
-  get: async (key) => {
-    if (typeof window !== "undefined" && window.storage) {
-      const res = await window.storage.get(key, false);
-      return res ? res.value : null;
-    }
-    return localStorage.getItem(key);
-  },
-  set: async (key, value) => {
-    if (typeof window !== "undefined" && window.storage) {
-      await window.storage.set(key, value, false);
-    } else {
-      localStorage.setItem(key, value);
-    }
-  }
-};
 
 function emptyForm() {
   const base = { name: "" };
@@ -318,7 +300,7 @@ function renderCompareValue(field, company) {
   return v ? v : "—";
 }
 
-export default function CompanyNotebook() {
+export default function App() {
   const [companies, setCompanies] = useState([]);
   const [customFields, setCustomFields] = useState([]);
   const [newCustomLabel, setNewCustomLabel] = useState("");
@@ -326,10 +308,6 @@ export default function CompanyNotebook() {
   const [form, setForm] = useState(emptyForm());
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  
-  // Settings & AI states
-  const [showSettings, setShowSettings] = useState(false);
-  const [apiKey, setApiKey] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
 
@@ -345,35 +323,64 @@ export default function CompanyNotebook() {
   const [showCompare, setShowCompare] = useState(false);
   const [expandedIds, setExpandedIds] = useState([]);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const val1 = await storageUtil.get(STORAGE_KEY);
-        if (val1) setCompanies(JSON.parse(val1).map(normalizeCompany));
-        
-        const val2 = await storageUtil.get(CUSTOM_FIELDS_STORAGE_KEY);
-        if (val2) setCustomFields(JSON.parse(val2));
+  // ログアウト処理を追加します
+  const handleSignOut = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error("ログアウトに失敗しました:", error.message);
+    }
+  };
 
-        const storedKey = await storageUtil.get(API_KEY_STORAGE_KEY);
-        if (storedKey) setApiKey(storedKey);
+  // ★ 1. 【初期データ取得】Supabase から企業データをロード
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("companies")
+          .select("*")
+          .order("created_at", { ascending: true });
+
+        if (error) throw error;
+
+        if (data) {
+          // JSONB型「data」の中身を展開してステート用にパースする
+          const loadedCompanies = data.map((item) => ({
+            id: item.id,
+            name: item.name,
+            addedAt: new Date(item.created_at).getTime(),
+            ...item.data, // 詳細データ(JSONB)をそのままマージ
+          }));
+          setCompanies(loadedCompanies.map(normalizeCompany));
+        }
       } catch (e) {
-        console.error("データの読み込みに失敗しました", e);
+        console.error("Supabaseからの読み込みに失敗しました:", e.message);
+      }
+
+      // カスタム表示設定はブラウザ固有の LocalStorage に保存
+      try {
+        const savedCustom = localStorage.getItem(CUSTOM_FIELDS_STORAGE_KEY);
+        if (savedCustom) setCustomFields(JSON.parse(savedCustom));
+      } catch (e) {
+        console.error("カスタム項目の読み込みに失敗しました:", e);
       } finally {
         setLoaded(true);
       }
-    })();
+    };
+
+    fetchData();
   }, []);
 
+  // ★ カスタム項目の定義が変更されたら LocalStorage に同期
   useEffect(() => {
     if (!loaded) return;
-    storageUtil.set(STORAGE_KEY, JSON.stringify(companies));
-  }, [companies, loaded]);
-
-  useEffect(() => {
-    if (!loaded) return;
-    storageUtil.set(CUSTOM_FIELDS_STORAGE_KEY, JSON.stringify(customFields));
+    try {
+      localStorage.setItem(CUSTOM_FIELDS_STORAGE_KEY, JSON.stringify(customFields));
+    } catch (e) {
+      console.error("カスタム項目の保存に失敗しました:", e);
+    }
   }, [customFields, loaded]);
 
+  // ローカルエクスポート・インポート
   function exportData() {
     const blob = new Blob([JSON.stringify(companies, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -501,39 +508,92 @@ export default function CompanyNotebook() {
     setCustomFields((prev) => prev.filter((cf) => cf.key !== key));
   }
 
-  function saveCompany() {
+  // ★ 2. 【保存処理】Supabase の JSONB(data) 形式に合わせて新規作成・編集を送信
+  async function saveCompany() {
     if (!form.name.trim()) return;
-    const payload = { name: form.name.trim() };
+
+    // 「会社名」以外のメタデータをまとめてJSONオブジェクト化
+    const payloadFields = {};
     ALL_FIELDS.forEach((field) => {
       if (field.type === "locations") {
-        payload.locations = form.locations
+        payloadFields.locations = form.locations
           .split(/[、,]/)
           .map((s) => s.trim())
           .filter(Boolean);
       } else if (field.type === "number") {
-        payload[field.key] = form[field.key] ? Number(form[field.key]) : null;
+        payloadFields[field.key] = form[field.key] ? Number(form[field.key]) : null;
       } else {
-        payload[field.key] = form[field.key];
+        payloadFields[field.key] = form[field.key];
       }
-      if (field.noteKey) payload[field.noteKey] = form[field.noteKey];
+      if (field.noteKey) payloadFields[field.noteKey] = form[field.noteKey];
     });
     customFields.forEach((cf) => {
-      payload[cf.key] = form[cf.key] || "";
+      payloadFields[cf.key] = form[cf.key] || "";
     });
-    if (editingId) {
-      setCompanies((prev) => prev.map((c) => (c.id === editingId ? { ...c, ...payload } : c)));
-    } else {
-      setCompanies((prev) => [...prev, { id: `${Date.now()}`, addedAt: Date.now(), ...payload }]);
+
+    try {
+      if (editingId) {
+        // 【更新】Supabase 側のレコードを編集
+        const { error } = await supabase
+          .from("companies")
+          .update({
+            name: form.name.trim(),
+            data: payloadFields, // JSONB カラムに丸ごと挿入
+          })
+          .eq("id", editingId);
+
+        if (error) throw error;
+
+        setCompanies((prev) =>
+          prev.map((c) => (c.id === editingId ? { ...c, name: form.name.trim(), ...payloadFields } : c))
+        );
+      } else {
+        // 【新規登録】Supabase 側にレコードを追加
+        const { data, error } = await supabase
+          .from("companies")
+          .insert([
+            {
+              name: form.name.trim(),
+              data: payloadFields, // JSONB カラムに丸ごと挿入
+            },
+          ])
+          .select();
+
+        if (error) throw error;
+
+        if (data && data[0]) {
+          const newCompany = {
+            id: data[0].id,
+            addedAt: new Date(data[0].created_at).getTime(),
+            name: data[0].name,
+            ...data[0].data,
+          };
+          setCompanies((prev) => [...prev, newCompany]);
+        }
+      }
+      setShowForm(false);
+      setForm(emptyForm());
+      setEditingId(null);
+    } catch (e) {
+      alert("保存に失敗しました: " + e.message);
     }
-    setShowForm(false);
-    setForm(emptyForm());
-    setEditingId(null);
   }
 
-  function deleteCompany(id) {
-    if(window.confirm("この企業のデータを削除してもよろしいですか？")) {
+  // ★ 3. 【削除処理】Supabase から削除
+  async function deleteCompany(id) {
+    if (!window.confirm("この企業の情報を削除してもよろしいですか？")) return;
+    try {
+      const { error } = await supabase
+        .from("companies")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+
       setCompanies((prev) => prev.filter((c) => c.id !== id));
       setSelectedIds((prev) => prev.filter((i) => i !== id));
+    } catch (e) {
+      alert("削除に失敗しました: " + e.message);
     }
   }
 
@@ -545,18 +605,9 @@ export default function CompanyNotebook() {
     setExpandedIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]));
   }
 
-  function saveApiKey() {
-    storageUtil.set(API_KEY_STORAGE_KEY, apiKey);
-    setShowSettings(false);
-  }
-
+  // AI自動生成ロジック
   async function generateWithAi() {
     if (!form.name.trim()) return;
-    if (!apiKey.trim()) {
-      setAiError("APIキーが設定されていません。右上の歯車マークからAnthropic APIキーを設定してください。");
-      return;
-    }
-    
     setAiLoading(true);
     setAiError("");
     try {
@@ -570,17 +621,11 @@ export default function CompanyNotebook() {
           return `"${f.key}": "${f.label}を80字程度で"`;
         })
         .join(",\n");
-        
       const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-          "anthropic-dangerously-allow-browser": "true" 
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "claude-3-5-sonnet-20240620", // モデルをアップデート
+          model: "claude-sonnet-4-6",
           max_tokens: 1500,
           messages: [
             {
@@ -590,15 +635,9 @@ export default function CompanyNotebook() {
           ],
         }),
       });
-
-      if (!response.ok) {
-        throw new Error(`API Request Failed: ${response.status}`);
-      }
-
       const data = await response.json();
       const text = data.content.map((b) => b.text || "").join("\n");
       const parsed = parseAiJson(text);
-      
       setForm((prev) => {
         const next = { ...prev };
         aiFields.forEach((f) => {
@@ -615,7 +654,7 @@ export default function CompanyNotebook() {
         return next;
       });
     } catch (e) {
-      setAiError(`AI生成に失敗しました。APIキーが正しいか、CORS制約に引っかかっていないか確認してください。(${e.message || "不明なエラー"})`);
+      setAiError(`AI生成に失敗しました: ${e.message || "不明なエラー"}`);
     } finally {
       setAiLoading(false);
     }
@@ -624,27 +663,29 @@ export default function CompanyNotebook() {
   const selectedCompanies = companies.filter((c) => selectedIds.includes(c.id));
 
   return (
-    <div className="min-h-screen bg-stone-50 text-slate-800 pb-24 font-sans">
+    <div className="min-h-screen bg-stone-50 text-slate-800 pb-24">
       <header className="border-b border-stone-300 bg-stone-50/95 backdrop-blur sticky top-0 z-20">
         <div className="max-w-5xl mx-auto px-5 py-4 flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">
             <ScrollText className="w-6 h-6 text-emerald-700" />
             <div>
-              <h1 className="text-xl text-slate-900 tracking-wide font-bold">企業比較ノート</h1>
+              <h1 className="text-xl text-slate-900 tracking-wide font-title">企業比較ノート</h1>
               <p className="text-xs text-slate-500">気になる企業を1社ずつ記録して、条件で見比べる</p>
             </div>
           </div>
           <div className="flex items-center gap-1.5">
-            <button
-              onClick={() => setShowSettings(true)}
-              title="設定 (APIキーなど)"
-              className="p-2 text-slate-500 hover:text-emerald-700 hover:bg-stone-100 rounded"
-            >
-              <Settings className="w-4 h-4" />
-            </button>
+            
+            {/* 👇 このボタンのコードを差し込みます */}
+　　　　　　　<button
+  　　　　　　　onClick={handleSignOut}
+  　　　　　　　className="px-3 py-1.5 text-xs bg-slate-800 text-white rounded hover:bg-slate-900 transition-colors"
+　　　　　　　>
+  　　　　　　　ログアウト
+　　　　　　　</button>
+
             <button
               onClick={exportData}
-              title="データをJSONファイルとして書き出し"
+              title="データをJSONファイルとして書き出し（他の端末へ移すときに使う）"
               className="p-2 text-slate-500 hover:text-emerald-700 hover:bg-stone-100 rounded"
             >
               <Download className="w-4 h-4" />
@@ -669,16 +710,20 @@ export default function CompanyNotebook() {
 
       <main className="max-w-5xl mx-auto px-5 py-6">
         {/* フィルター */}
-        <div className="bg-white border border-stone-200 rounded-md mb-6 shadow-sm">
+        <div className="bg-white border border-stone-200 rounded-md mb-6">
           <button
             onClick={() => setShowFilters((s) => !s)}
             className="w-full flex items-center justify-between px-4 py-3 text-sm text-slate-700"
           >
-            <span className="flex items-center gap-2 font-bold">
+            <span className="flex items-center gap-2">
               <Search className="w-4 h-4 text-slate-400" />
               絞り込み
-              {(locationFilter.length > 0 || conditionFilter.length > 0 || salaryMin || salaryMax || overtimeMax || keyword) && 
-                <span className="text-emerald-700 text-xs">（適用中）</span>}
+              {(locationFilter.length > 0 ||
+                conditionFilter.length > 0 ||
+                salaryMin ||
+                salaryMax ||
+                overtimeMax ||
+                keyword) && <span className="text-emerald-700">（適用中）</span>}
             </span>
             <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${showFilters ? "rotate-180" : ""}`} />
           </button>
@@ -772,7 +817,10 @@ export default function CompanyNotebook() {
                 </div>
               </div>
 
-              <button onClick={resetFilters} className="text-xs text-slate-500 hover:text-rose-600 underline underline-offset-2">
+              <button
+                onClick={resetFilters}
+                className="text-xs text-slate-500 hover:text-rose-600 underline underline-offset-2"
+              >
                 条件をクリア
               </button>
             </div>
@@ -781,7 +829,7 @@ export default function CompanyNotebook() {
 
         {/* 企業一覧 */}
         {filtered.length === 0 ? (
-          <div className="text-center py-16 text-slate-400 border border-dashed border-stone-300 rounded-md bg-white">
+          <div className="text-center py-16 text-slate-400 border border-dashed border-stone-300 rounded-md">
             {companies.length === 0 ? (
               <>
                 <Building2 className="w-8 h-8 mx-auto mb-2 opacity-50" />
@@ -799,17 +847,16 @@ export default function CompanyNotebook() {
               const selected = selectedIds.includes(c.id);
               const expanded = expandedIds.includes(c.id);
               const otTone = overtimeTone(c.monthlyOvertimeHours);
-              
               return (
                 <div
                   key={c.id}
-                  className={`relative bg-white border rounded-md pt-5 pb-4 px-4 transition-shadow shadow-sm hover:shadow-md ${
+                  className={`relative bg-white border rounded-md pt-5 pb-4 px-4 transition-shadow ${
                     selected ? "border-emerald-500 ring-1 ring-emerald-400" : "border-stone-200"
                   }`}
                 >
                   <FileTab index={originalIndex} />
                   <div className="flex items-start justify-between gap-2 mb-2">
-                    <h3 className="text-base text-slate-900 font-bold">{c.name}</h3>
+                    <h3 className="text-base text-slate-900 font-title">{c.name}</h3>
                     <div className="flex items-center gap-1 shrink-0">
                       <button onClick={() => openEditForm(c)} className="p-1 text-slate-400 hover:text-emerald-700" aria-label="編集">
                         <Pencil className="w-3.5 h-3.5" />
@@ -825,7 +872,9 @@ export default function CompanyNotebook() {
                   <div className="flex items-center gap-1.5 text-sm mb-2">
                     <Banknote className="w-3.5 h-3.5 text-amber-600" />
                     <span className="text-slate-700">{c.salary ? `平均年収 約${c.salary}万円` : "平均年収 不明"}</span>
-                    {otTone && <Tag tone={otTone}>残業 月{c.monthlyOvertimeHours}h</Tag>}
+                    {otTone && (
+                      <Tag tone={otTone}>残業 月{c.monthlyOvertimeHours}h</Tag>
+                    )}
                   </div>
 
                   {c.locations && c.locations.length > 0 && (
@@ -846,7 +895,7 @@ export default function CompanyNotebook() {
 
                   <button
                     onClick={() => toggleExpand(c.id)}
-                    className="flex items-center gap-1 text-xs text-emerald-700 font-bold mb-2 hover:underline"
+                    className="flex items-center gap-1 text-xs text-emerald-700 mb-2"
                   >
                     {expanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
                     詳細を{expanded ? "閉じる" : "見る"}
@@ -856,16 +905,19 @@ export default function CompanyNotebook() {
                     <div className="space-y-2.5 mb-3 border-t border-stone-100 pt-3">
                       {FIELD_SECTIONS.map((section) => (
                         <div key={section.title}>
-                          <p className="text-xs text-slate-400 mb-1 font-bold">{section.title}</p>
+                          <p className="text-xs text-slate-400 mb-1">{section.title}</p>
                           <div className="space-y-1.5">
                             {section.fields.map((f) => {
                               const val = c[f.key];
-                              const isEmpty = f.type === "locations" ? !val || val.length === 0 : !val || val === "不明";
+                              const isEmpty =
+                                f.type === "locations"
+                                  ? !val || val.length === 0
+                                  : !val || val === "不明";
                               if (isEmpty) return null;
                               return (
-                                <div key={f.key} className="text-xs text-slate-600 flex">
-                                  <span className="text-slate-400 w-24 shrink-0">{f.label}：</span>
-                                  <div className="flex-1">{renderCompareValue(f, c)}</div>
+                                <div key={f.key} className="text-xs text-slate-600">
+                                  <span className="text-slate-400">{f.label}：</span>
+                                  {renderCompareValue(f, c)}
                                 </div>
                               );
                             })}
@@ -874,22 +926,24 @@ export default function CompanyNotebook() {
                       ))}
                       {customFields.length > 0 && (
                         <div>
-                          <p className="text-xs text-slate-400 mb-1 font-bold">カスタム項目</p>
+                          <p className="text-xs text-slate-400 mb-1">カスタム項目</p>
                           <div className="space-y-1.5">
-                            {customFields.filter((cf) => c[cf.key]).map((cf) => (
-                              <div key={cf.key} className="text-xs text-slate-600 flex">
-                                <span className="text-slate-400 w-24 shrink-0">{cf.label}：</span>
-                                <div className="flex-1">{c[cf.key]}</div>
-                              </div>
-                            ))}
+                            {customFields
+                              .filter((cf) => c[cf.key])
+                              .map((cf) => (
+                                <div key={cf.key} className="text-xs text-slate-600">
+                                  <span className="text-slate-400">{cf.label}：</span>
+                                  {c[cf.key]}
+                                </div>
+                              ))}
                           </div>
                         </div>
                       )}
                     </div>
                   )}
 
-                  <label className="flex items-center gap-2 text-xs text-slate-500 border-t border-stone-100 pt-2.5 cursor-pointer hover:text-slate-700 transition-colors">
-                    <input type="checkbox" checked={selected} onChange={() => toggleSelect(c.id)} className="accent-emerald-700 w-4 h-4 cursor-pointer" />
+                  <label className="flex items-center gap-2 text-xs text-slate-500 border-t border-stone-100 pt-2.5 cursor-pointer">
+                    <input type="checkbox" checked={selected} onChange={() => toggleSelect(c.id)} className="accent-emerald-700" />
                     比較する企業に追加
                   </label>
                 </div>
@@ -899,62 +953,56 @@ export default function CompanyNotebook() {
         )}
       </main>
 
-      {/* 比較用フローティングバー */}
       {selectedIds.length > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 bg-slate-900 text-stone-50 z-30 shadow-[0_-4px_6px_rgba(0,0,0,0.1)]">
+        <div className="fixed bottom-0 left-0 right-0 bg-slate-900 text-stone-50 z-30">
           <div className="max-w-5xl mx-auto px-5 py-3 flex items-center justify-between gap-4">
             <div className="text-sm">
-              比較リスト: <span className="text-emerald-400 font-bold">{selectedIds.length}社</span>選択中
+              比較リスト: <span className="text-emerald-400">{selectedIds.length}社</span>選択中
             </div>
             <div className="flex items-center gap-2">
-              <button onClick={() => setShowCompare(true)} className="bg-emerald-600 hover:bg-emerald-500 text-stone-50 px-4 py-1.5 rounded text-sm font-bold transition-colors">
-                比較表を開く
+              <button onClick={() => setShowCompare(true)} className="bg-emerald-600 hover:bg-emerald-500 text-stone-50 text-sm px-3 py-1.5 rounded">
+                比較表を見る
               </button>
-              <button onClick={() => setSelectedIds([])} className="text-slate-400 hover:text-stone-50 text-xs px-2 py-1 underline underline-offset-2 transition-colors">
-                クリア
+              <button onClick={() => setSelectedIds([])} className="text-slate-400 hover:text-stone-100 text-sm px-2 py-1.5">
+                選択解除
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* 比較表モーダル */}
       {showCompare && (
-        <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-6xl max-h-[90vh] rounded-md shadow-2xl flex flex-col">
-            <div className="flex items-center justify-between p-4 border-b border-stone-200">
-              <h2 className="text-lg text-slate-900 font-bold">比較表 ({selectedCompanies.length}社)</h2>
-              <button onClick={() => setShowCompare(false)} className="p-1.5 text-slate-400 hover:bg-stone-100 rounded transition-colors">
+        <div className="fixed inset-0 bg-slate-900/60 z-40 flex items-start justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-md max-w-6xl w-full mt-8 mb-8">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-stone-200">
+              <h2 className="text-lg text-slate-900 font-title">企業比較表</h2>
+              <button onClick={() => setShowCompare(false)} className="p-1 text-slate-400 hover:text-slate-700">
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="overflow-auto flex-1 p-4">
-              <table className="w-full text-sm text-left border-collapse min-w-max">
-                <thead>
+            <div className="overflow-x-auto p-5">
+              <table className="w-full text-sm border-collapse">
+                <tbody>
                   <tr>
-                    <th className="border border-stone-300 bg-stone-100 p-2 sticky left-0 z-10 min-w-[120px]">項目</th>
+                    <td className="w-32 text-xs text-slate-400 align-top py-3 pr-3">企業名</td>
                     {selectedCompanies.map((c) => (
-                      <th key={c.id} className="border border-stone-300 bg-stone-50 p-3 min-w-[200px] text-base font-bold">
+                      <td key={c.id} className="align-top py-3 px-3 border-l border-stone-100 text-slate-900 min-w-[200px] font-title">
                         {c.name}
-                      </th>
+                      </td>
                     ))}
                   </tr>
-                </thead>
-                <tbody>
                   {FIELD_SECTIONS.map((section) => (
                     <Fragment key={section.title}>
-                      <tr>
-                        <td colSpan={selectedCompanies.length + 1} className="bg-slate-200 text-slate-800 font-bold p-2 text-xs uppercase tracking-wider">
+                      <tr className="border-t border-stone-200">
+                        <td colSpan={selectedCompanies.length + 1} className="text-xs text-emerald-700 pt-4 pb-1 font-medium">
                           {section.title}
                         </td>
                       </tr>
                       {section.fields.map((f) => (
-                        <tr key={f.key} className="hover:bg-stone-50/50">
-                          <td className="border border-stone-300 p-2 bg-stone-50 text-slate-700 sticky left-0 z-10 whitespace-nowrap">
-                            {f.label} {f.personal && <span className="text-emerald-700 text-[10px] ml-1">(メモ)</span>}
-                          </td>
+                        <tr key={f.key} className="border-t border-stone-100">
+                          <td className="text-xs text-slate-400 align-top py-3 pr-3">{f.label}</td>
                           {selectedCompanies.map((c) => (
-                            <td key={c.id} className="border border-stone-300 p-2 align-top whitespace-pre-wrap leading-relaxed">
+                            <td key={c.id} className="align-top py-3 px-3 border-l border-stone-100 text-slate-600">
                               {renderCompareValue(f, c)}
                             </td>
                           ))}
@@ -964,18 +1012,16 @@ export default function CompanyNotebook() {
                   ))}
                   {customFields.length > 0 && (
                     <Fragment>
-                      <tr>
-                        <td colSpan={selectedCompanies.length + 1} className="bg-slate-200 text-slate-800 font-bold p-2 text-xs uppercase tracking-wider">
+                      <tr className="border-t border-stone-200">
+                        <td colSpan={selectedCompanies.length + 1} className="text-xs text-emerald-700 pt-4 pb-1 font-medium">
                           カスタム項目
                         </td>
                       </tr>
                       {customFields.map((cf) => (
-                        <tr key={cf.key} className="hover:bg-stone-50/50">
-                          <td className="border border-stone-300 p-2 bg-stone-50 text-slate-700 sticky left-0 z-10 whitespace-nowrap">
-                            {cf.label}
-                          </td>
+                        <tr key={cf.key} className="border-t border-stone-100">
+                          <td className="text-xs text-slate-400 align-top py-3 pr-3">{cf.label}</td>
                           {selectedCompanies.map((c) => (
-                            <td key={c.id} className="border border-stone-300 p-2 align-top whitespace-pre-wrap leading-relaxed">
+                            <td key={c.id} className="align-top py-3 px-3 border-l border-stone-100 text-slate-600">
                               {c[cf.key] || "—"}
                             </td>
                           ))}
@@ -990,189 +1036,160 @@ export default function CompanyNotebook() {
         </div>
       )}
 
-      {/* 設定モーダル */}
-      {showSettings && (
-        <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-md shadow-2xl overflow-hidden">
-            <div className="bg-slate-50 border-b border-stone-200 p-4 flex items-center justify-between">
-              <h2 className="text-lg text-slate-900 font-bold">設定</h2>
-              <button onClick={() => setShowSettings(false)} className="p-1.5 text-slate-400 hover:bg-stone-200 rounded transition-colors">
+      {showForm && (
+        <div className="fixed inset-0 bg-slate-900/60 z-40 flex items-start justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-md max-w-2xl w-full mt-8 mb-8">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-stone-200">
+              <h2 className="text-lg text-slate-900 font-title">{editingId ? "企業情報を編集" : "企業を追加"}</h2>
+              <button onClick={() => setShowForm(false)} className="p-1 text-slate-400 hover:text-slate-700">
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="p-5 space-y-4">
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Anthropic API キー</label>
-                <input
-                  type="password"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="sk-ant-..."
-                  className="w-full border border-stone-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
-                />
-                <p className="text-xs text-slate-500 mt-2">
-                  ブラウザのローカルストレージに保存されます。公開先でこの情報が他人に共有されることはありません。
-                </p>
+
+            <div className="p-5 space-y-5 max-h-[70vh] overflow-y-auto">
+              {/* 企業名 */}
+        <div>
+          <label className="text-xs text-slate-500 block mb-1">企業名</label>
+          <input
+            type="text"
+            value={form.name} // 
+            onChange={(e) => updateField("name", e.target.value)} // 
+            placeholder="例）株式会社◯◯"
+            className="w-full border border-stone-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          />
+        </div>
+
+              {FIELD_SECTIONS.map((section) => (
+        <div key={section.title}>
+          {/* セクションの見出し（基本情報、募集・採用など） */}
+          <p className="text-xs text-emerald-700 font-medium mb-2 border-b border-stone-100 pb-1">{section.title}</p>
+          
+          <div className="space-y-3">
+            {section.fields.map((f) => {
+              // 👇 マイページURLの時だけ「URL・ID・PW」を横並びにする特別ルール
+              if (f.key === "myPageUrl") {
+                return (
+                  <div key={f.key}>
+                    <label className="text-xs text-slate-500 block mb-1">{f.label}</label>
+                    
+                    {/* flexで3つの入力ボックスを横並びにするコンテナ */}
+                    <div className="flex gap-2">
+                      {/* 左側：URL入力欄 */}
+                      <div className="flex-1">
+                        <FieldInput field={f} value={form[f.key]} onChange={(v) => updateField(f.key, v)} />
+                      </div>
+                      
+                      {/* 真ん中：ID入力欄 */}
+                      <input
+                        type="text"
+                        value={form.myPageId || ""}
+                        onChange={(e) => updateField("myPageId", e.target.value)}
+                        placeholder="ID"
+                        className="w-28 border border-stone-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                      
+                      {/* 右側：パスワード入力欄 */}
+                      <input
+                        type="text"
+                        value={form.myPagePw || ""}
+                        onChange={(e) => updateField("myPagePw", e.target.value)}
+                        placeholder="PW"
+                        className="w-24 border border-stone-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
+                  </div>
+                );
+              }
+
+              // メモ付きのセレクトボックス（通常ルール）
+              if (f.type === "select_with_note") {
+                return (
+                  <div key={f.key}>
+                    <label className="text-xs text-slate-500 block mb-1">{f.label}</label>
+                    <div className="flex gap-2 flex-wrap">
+                      <FieldInput field={f} value={form[f.key]} onChange={(v) => updateField(f.key, v)} />
+                      <input
+                        type="text"
+                        value={form[f.noteKey]}
+                        onChange={(e) => updateField(f.noteKey, e.target.value)}
+                        placeholder={f.notePlaceholder || "メモ"}
+                        className="flex-1 min-w-[160px] border border-stone-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
+                  </div>
+                );
+              }
+
+              // その他の通常の入力欄
+              return (
+                <div key={f.key}>
+                  <label className="text-xs text-slate-500 block mb-1">{f.label}</label>
+                  <FieldInput field={f} value={form[f.key]} onChange={(v) => updateField(f.key, v)} />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+                <p className="text-xs text-emerald-700 font-medium mb-2 border-b border-stone-100 pb-1">カスタム項目</p>
+                <div className="space-y-3">
+                  {customFields.map((cf) => (
+                    <div key={cf.key}>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs text-slate-500">{cf.label}</label>
+                        <button
+                          onClick={() => removeCustomField(cf.key)}
+                          className="text-slate-300 hover:text-rose-600"
+                          title="この項目を削除"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      <input
+                        type="text"
+                        value={form[cf.key] || ""}
+                        onChange={(e) => updateField(cf.key, e.target.value)}
+                        className="w-full border border-stone-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                      />
+                    </div>
+                  ))}
+                  <div className="flex gap-2 items-center pt-1">
+                    <input
+                      type="text"
+                      value={newCustomLabel}
+                      onChange={(e) => setNewCustomLabel(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && addCustomField()}
+                      placeholder="新しい項目名（例：選考ステータス）"
+                      className="flex-1 border border-stone-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                    />
+                    <button
+                      onClick={addCustomField}
+                      disabled={!newCustomLabel.trim()}
+                      className="flex items-center gap-1 bg-slate-800 hover:bg-slate-900 disabled:opacity-40 text-stone-50 text-xs px-3 py-2 rounded whitespace-nowrap"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      項目を追加
+                    </button>
+                  </div>
+                  <p className="text-xs text-slate-400">追加した項目はすべての企業カードに表示され、比較表にも追加されます。</p>
+                </div>
               </div>
             </div>
-            <div className="bg-stone-50 border-t border-stone-200 p-4 flex justify-end">
-              <button onClick={saveApiKey} className="px-6 py-2 text-sm bg-emerald-700 hover:bg-emerald-800 text-white rounded transition-colors">
-                保存して閉じる
+
+            <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-stone-200">
+              <button onClick={() => setShowForm(false)} className="text-sm text-slate-500 px-3 py-2">
+                キャンセル
+              </button>
+              <button
+                onClick={saveCompany}
+                disabled={!form.name.trim()}
+                className="bg-emerald-700 hover:bg-emerald-800 disabled:opacity-40 text-stone-50 text-sm px-4 py-2 rounded"
+              >
+                保存する
               </button>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* 企業追加・編集フォーム */}
-      {showForm && (
-        <div className="fixed inset-0 bg-slate-900/60 z-50 overflow-y-auto">
-          <div className="min-h-screen flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-3xl rounded-md shadow-2xl overflow-hidden relative">
-              <div className="bg-slate-50 border-b border-stone-200 p-4 sticky top-0 z-10 flex items-center justify-between">
-                <h2 className="text-lg text-slate-900 font-bold">{editingId ? "企業情報を編集" : "企業を追加"}</h2>
-                <button onClick={() => setShowForm(false)} className="p-1.5 text-slate-400 hover:bg-stone-200 rounded transition-colors">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="p-5 space-y-8">
-                {/* AIジェネレーター */}
-                <div className="bg-emerald-50/50 border border-emerald-100 rounded-md p-4">
-                  <div className="flex items-start gap-3">
-                    <Sparkles className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
-                    <div className="flex-1 space-y-2">
-                      <p className="text-sm text-emerald-900 font-bold">AI自動入力アシスト</p>
-                      <p className="text-xs text-emerald-700/80">
-                        企業名を入力してボタンを押すと、一般的な公開情報をもとに基本項目を推測・自動入力します。
-                      </p>
-                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mt-2">
-                        <input
-                          type="text"
-                          value={form.name}
-                          onChange={(e) => updateField("name", e.target.value)}
-                          placeholder="企業名を入力（例：株式会社〇〇）"
-                          className="flex-1 border border-emerald-200 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-white"
-                        />
-                        <button
-                          onClick={generateWithAi}
-                          disabled={!form.name.trim() || aiLoading}
-                          className="bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed text-stone-50 text-sm px-4 py-2 rounded transition-colors flex items-center justify-center gap-1.5 shrink-0"
-                        >
-                          {aiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                          AIで入力
-                        </button>
-                      </div>
-                      {aiError && (
-                        <div className="flex items-center gap-1.5 text-xs text-rose-600 bg-rose-50 p-2 rounded mt-2">
-                          <AlertTriangle className="w-4 h-4 shrink-0" />
-                          <span className="break-all">{aiError}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-8">
-                  {FIELD_SECTIONS.map((section) => (
-                    <section key={section.title} className="space-y-4">
-                      <h3 className="text-sm font-bold text-slate-800 border-b border-stone-200 pb-1">
-                        {section.title}
-                      </h3>
-                      <div className="grid sm:grid-cols-2 gap-4">
-                        {section.fields.map((f) => (
-                          <div key={f.key} className={f.type === "textarea" ? "sm:col-span-2" : ""}>
-                            <label className="block text-xs text-slate-600 mb-1.5 font-medium">
-                              {f.label} {f.personal && <span className="text-emerald-700 ml-1">(主観メモ)</span>}
-                            </label>
-                            <FieldInput
-                              field={f}
-                              value={form[f.key]}
-                              onChange={(val) => updateField(f.key, val)}
-                            />
-                            {f.type === "select_with_note" && (
-                              <input
-                                type="text"
-                                value={form[f.noteKey] || ""}
-                                onChange={(e) => updateField(f.noteKey, e.target.value)}
-                                placeholder={f.notePlaceholder}
-                                className="w-full mt-2 border border-stone-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
-                              />
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </section>
-                  ))}
-
-                  {/* カスタム項目セクション */}
-                  <section className="space-y-4">
-                    <h3 className="text-sm font-bold text-slate-800 border-b border-stone-200 pb-1">
-                      自分だけの評価項目
-                    </h3>
-                    {customFields.length > 0 && (
-                      <div className="grid sm:grid-cols-2 gap-4 mb-4">
-                        {customFields.map((cf) => (
-                          <div key={cf.key} className="relative group">
-                            <label className="block text-xs text-slate-600 mb-1.5 font-medium">{cf.label}</label>
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="text"
-                                value={form[cf.key] || ""}
-                                onChange={(e) => updateField(cf.key, e.target.value)}
-                                className="flex-1 border border-stone-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
-                              />
-                              <button
-                                onClick={() => removeCustomField(cf.key)}
-                                className="p-1.5 text-slate-400 hover:text-rose-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                                title="この項目を削除"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                      <input
-                        type="text"
-                        value={newCustomLabel}
-                        onChange={(e) => setNewCustomLabel(e.target.value)}
-                        placeholder="新しい項目の名前（例：面接の雰囲気）"
-                        className="flex-1 sm:w-64 border border-stone-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
-                        onKeyDown={(e) => e.key === "Enter" && addCustomField()}
-                      />
-                      <button
-                        onClick={addCustomField}
-                        disabled={!newCustomLabel.trim()}
-                        className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded text-sm disabled:opacity-50 transition-colors font-bold whitespace-nowrap"
-                      >
-                        追加
-                      </button>
-                    </div>
-                  </section>
-                </div>
-              </div>
-
-              <div className="bg-stone-50 border-t border-stone-200 p-4 sticky bottom-0 z-10 flex items-center justify-end gap-3">
-                <button
-                  onClick={() => setShowForm(false)}
-                  className="px-4 py-2 text-sm text-slate-600 hover:bg-stone-200 rounded transition-colors font-bold"
-                >
-                  キャンセル
-                </button>
-                <button
-                  onClick={saveCompany}
-                  disabled={!form.name.trim()}
-                  className="px-6 py-2 text-sm bg-emerald-700 hover:bg-emerald-800 text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-bold"
-                >
-                  保存する
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+      
       )}
     </div>
   );
