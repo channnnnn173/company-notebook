@@ -310,6 +310,21 @@ export default function App() {
   const [editingId, setEditingId] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    // 現在ログインしているユーザーがいるか確認
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+
+    // ログイン・ログアウトの動きを監視して自動でuserを更新
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const [keyword, setKeyword] = useState("");
   const [locationFilter, setLocationFilter] = useState([]);
@@ -324,6 +339,17 @@ export default function App() {
   const [expandedIds, setExpandedIds] = useState([]);
 
   // ログアウト処理を追加します
+  const handleSignIn = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin + '/company-notebook/'
+      }
+    });
+    if (error) {
+      console.error("ログインに失敗しました:", error.message);
+    }
+  };
   const handleSignOut = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) {
@@ -676,12 +702,24 @@ export default function App() {
           <div className="flex items-center gap-1.5">
             
             {/* 👇 このボタンのコードを差し込みます */}
-　　　　　　　<button
-  　　　　　　　onClick={handleSignOut}
-  　　　　　　　className="px-3 py-1.5 text-xs bg-slate-800 text-white rounded hover:bg-slate-900 transition-colors"
-　　　　　　　>
-  　　　　　　　ログアウト
-　　　　　　　</button>
+　　　　　　　{user ? (
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-slate-500">{user.email}</span>
+            <button
+              onClick={handleSignOut}
+              className="px-3 py-1.5 text-xs bg-slate-800 text-white rounded hover:bg-slate-900 transition-colors"
+            >
+              ログアウト
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={handleSignIn}
+            className="px-3 py-1.5 text-xs bg-emerald-600 text-white rounded hover:bg-emerald-700 transition-colors"
+          >
+            Googleでログイン
+          </button>
+        )}
 
             <button
               onClick={exportData}
