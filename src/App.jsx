@@ -53,8 +53,7 @@ const FIELD_SECTIONS = [
         type: "select",
         options: ["不明", "可", "条件付きで可", "不可"],
       },
-      { key: "requiredTalent", label: "求められる人材", type: "textarea" },
-      { key: "suitedPerson", label: "向いている人の特徴", type: "textarea" },
+      { key: "requiredTalent", label: "求められる人材/向いている人", type: "textarea" },
       {
         key: "decisivePoint",
         label: "決め手",
@@ -79,7 +78,7 @@ const FIELD_SECTIONS = [
         key: "overseasWork",
         label: "海外勤務",
         type: "select_with_note",
-        options: ["あり", "なし","不明"],
+        options: ["不明", "あり","なし"],
         noteKey: "overseasWorkNote",
         notePlaceholder: "メモ（例：希望者のみ、拠点名 など）",
       },
@@ -87,13 +86,13 @@ const FIELD_SECTIONS = [
         key: "remoteWork",
         label: "リモートワーク",
         type: "select",
-        options: [ "可", "一部可", "不可","不明"],
+        options: ["不明","可", "ハイブリット","部門による","不可"],
       },
       {
         key: "flexSystem",
         label: "フレックス制度",
         type: "select",
-        options: [ "コア","フル", "なし","不明"],
+        options: [ "不明","コア","フル","部門による", "なし",],
       },
       {
         key: "noTransfer",
@@ -119,6 +118,7 @@ const FIELD_SECTIONS = [
       personal: true,
       placeholder: "https://... ",
     },
+    
       { key: "internship", label: "インターン情報", type: "textarea" },
       {
         key: "recruitmentInfo",
@@ -144,13 +144,19 @@ const ALL_FIELDS = FIELD_SECTIONS.flatMap((s) => s.fields);
 const CUSTOM_FIELDS_STORAGE_KEY = "company-notebook:custom-fields:v1";
 
 function emptyForm() {
-  const base = { name: "" };
+  const initial = { name: "" };
   ALL_FIELDS.forEach((f) => {
-    if (f.type === "select" || f.type === "select_with_note") base[f.key] = f.options[0];
-    else base[f.key] = "";
-    if (f.noteKey) base[f.noteKey] = "";
+    initial[f.key]="";
+    if (f.noteKey) initial[f.noteKey] = "";
   });
-  return base;
+
+  initial.myPageId="";
+  initial.myPagePw="";
+  
+  initial.revenue="";
+  initial.employees="";
+
+  return initial;
 }
 
 function normalizeCompany(raw) {
@@ -510,6 +516,13 @@ export default function App() {
       f[cf.key] = company[cf.key] || "";
     });
     f.name = company.name;
+
+    f.myPageId = company.myPageId || company.data?.myPageId || "";
+    f.myPagePw = company.myPagePw || company.data?.myPagePw || "";
+    
+    f.revenue = company.revenue || company.data?.revenue || "";
+    f.employees = company.employees || company.data?.revenue || "";
+
     setForm(f);
     setEditingId(company.id);
     setAiError("");
@@ -534,37 +547,54 @@ export default function App() {
   }
 
   // ★ 2. 【保存処理】Supabase の JSONB(data) 形式に合わせて新規作成・編集を送信
+  // ★ 究極の安全版 saveCompany 関数
   async function saveCompany() {
-    if (!form.name.trim()) return;
-
-    // 「会社名」以外のメタデータをまとめてJSONオブジェクト化
-    const payloadFields = {};
-    ALL_FIELDS.forEach((field) => {
-      if (field.type === "locations") {
-        payloadFields.locations = form.locations
-          .split(/[、,]/)
-          .map((s) => s.trim())
-          .filter(Boolean);
-      } else if (field.type === "number") {
-        payloadFields[field.key] = form[field.key] ? Number(form[field.key]) : null;
-      } else {
-        payloadFields[field.key] = form[field.key];
-      }
-      if (field.noteKey) payloadFields[field.noteKey] = form[field.noteKey];
-    });
-    customFields.forEach((cf) => {
-      payloadFields[cf.key] = form[cf.key] || "";
-    });
-
+    // 💡 関数の最初から全体を try で囲み、どんなエラーも逃さないようにします
     try {
+      if (!form.name || !form.name.trim()) {
+        alert("企業名を入力してください。");
+        return;
+      }
+
+      // 1. 送信データの整形
+      const payloadFields = {};
+      ALL_FIELDS.forEach((field) => {
+        if (field.type === "locations") {
+          const locStr = form.locations || "";
+          payloadFields.locations = locStr
+            .split(/[、,]/)
+            .map((s) => s.trim())
+            .filter(Boolean);
+        } else if (field.type === "number") {
+          payloadFields[field.key] = form[field.key] ? Number(form[field.key]) : null;
+        } else {
+          payloadFields[field.key] = form[field.key] ?? "";
+        }
+        if (field.noteKey) payloadFields[field.noteKey] = form[field.noteKey] ?? "";
+      });
+
+      payloadFields.myPageId = form.myPageId || "";
+      payloadFields.myPagePw = form.myPagePw || "";
+
+      payloadFields.revenue = form.myPageId || "";
+      payloadFields.employees = form.myPagePw || "";
+
+      customFields.forEach((cf) => {
+        payloadFields[cf.key] = form[cf.key] || "";
+      });
+
+      // 2. 送信する基本データ
+      const recordData = {
+        name: form.name.trim(),
+        data: payloadFields,
+      };
+
+      // 3. Supabaseへ送信
       if (editingId) {
-        // 【更新】Supabase 側のレコードを編集
+        // 【更新】
         const { error } = await supabase
           .from("companies")
-          .update({
-            name: form.name.trim(),
-            data: payloadFields, // JSONB カラムに丸ごと挿入
-          })
+          .update(recordData)
           .eq("id", editingId);
 
         if (error) throw error;
@@ -573,15 +603,10 @@ export default function App() {
           prev.map((c) => (c.id === editingId ? { ...c, name: form.name.trim(), ...payloadFields } : c))
         );
       } else {
-        // 【新規登録】Supabase 側にレコードを追加
+        // 【新規追加】
         const { data, error } = await supabase
           .from("companies")
-          .insert([
-            {
-              name: form.name.trim(),
-              data: payloadFields, // JSONB カラムに丸ごと挿入
-            },
-          ])
+          .insert([recordData])
           .select();
 
         if (error) throw error;
@@ -596,13 +621,19 @@ export default function App() {
           setCompanies((prev) => [...prev, newCompany]);
         }
       }
+
+      // 4. 成功処理
       setShowForm(false);
       setForm(emptyForm());
       setEditingId(null);
+
     } catch (e) {
-      alert("保存に失敗しました: " + e.message);
+      console.error("保存詳細エラー:", e);
+      // エラーの理由をポップアップで具体的に表示
+      alert(`保存できませんでした。\n【理由】: ${e.message || JSON.stringify(e)}`);
     }
   }
+
 
   // ★ 3. 【削除処理】Supabase から削除
   async function deleteCompany(id) {
@@ -913,6 +944,51 @@ export default function App() {
                       <Tag tone={otTone}>残業 月{c.monthlyOvertimeHours}h</Tag>
                     )}
                   </div>
+
+                  <div className="flex flex-wrap items-center gap-3 my-3 p-2 bg-stone-50 rounded-lg border border-stone-200">
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs font-bold text-stone-600">売上高;</span>
+                      <input
+                        type="number"
+                        value={form.revenue || ""}
+                        onChange={(e)=>updateField("revenue", e.target.value)}
+                        placeholder="100"
+                        className="w-20 border border-stone-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+                        />
+                        <span className="text-xs text-stone-500">億円</span>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+    <span className="text-xs font-bold text-stone-600">従業員数:</span>
+    <input
+      type="number"
+      value={form.employees || ""}
+      onChange={(e) => updateField("employees", e.target.value)}
+      placeholder="500"
+      className="w-20 border border-stone-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+    />
+    <span className="text-xs text-stone-500">人</span>
+  </div>
+
+  {/* 1人当たり売上（自動計算結果） */}
+  <div className="flex items-center gap-1 bg-emerald-100 px-2.5 py-1 rounded-md border border-emerald-300">
+    <span className="text-xs font-bold text-emerald-800">1人あたり:</span>
+    <span className="text-sm font-extrabold text-emerald-900">
+      {(() => {
+        const rev = parseFloat(form.revenue);
+        const emp = parseFloat(form.employees);
+        if (!rev || !emp || emp <= 0) return "-";
+        
+        // 売上(億円) ÷ 従業員数(人) から「万円」を算出
+        const perEmp = (rev * 10000) / emp; 
+        
+        return perEmp >= 10000
+          ? `${(perEmp / 10000).toFixed(1)}億円/人`
+          : `${Math.round(perEmp).toLocaleString()}万円/人`;
+      })()}
+    </span>
+  </div>
+</div>   
 
                   {c.locations && c.locations.length > 0 && (
                     <div className="flex flex-wrap gap-1 mb-2">
