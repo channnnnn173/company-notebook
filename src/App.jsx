@@ -29,31 +29,24 @@ const FIELD_SECTIONS = [
   {
     title: "基本情報",
     fields: [
+      { key: "features", label: "特徴", type: "textarea" },
       { key: "business", label: "事業内容", type: "textarea" },
       { key: "philosophy", label: "企業理念", type: "textarea" },
-      { key: "features", label: "特徴", type: "textarea" },
-      { key: "jobType", label: "希望職種・募集職種", type: "text" },
       { key: "salary", label: "平均年収", type: "number", unit: "万円" },
-    ],
-  },
-  {
-    title: "社風・将来性",
-    fields: [
-      { key: "teamwork", label: "チームワーク", type: "textarea" },
       {
         key: "growthStage",
         label: "成長企業か",
         type: "select",
         options: ["不明", "成長中", "安定", "縮小傾向"],
       },
+    ],
+  },
+  {
+    title: "社風・将来性",
+    fields: [
+      { key: "teamwork", label: "チームワーク", type: "textarea" },
       { key: "futureGoals", label: "今後の目標", type: "textarea" },
-      {
-        key: "noExperienceOk",
-        label: "未経験でも〇か",
-        type: "select",
-        options: ["不明", "可", "条件付きで可", "不可"],
-      },
-      { key: "requiredTalent", label: "求められる人材/向いている人", type: "textarea" },
+      
       {
         key: "decisivePoint",
         label: "決め手",
@@ -75,6 +68,12 @@ const FIELD_SECTIONS = [
     fields: [
       { key: "locations", label: "勤務地（読点区切りで複数可）", type: "locations" },
       {
+        key: "noTransfer",
+        label: "転勤の有無",
+        type: "select",
+        options: ["不明", "転勤なし", "転勤あり"],
+      },
+      {
         key: "overseasWork",
         label: "海外勤務",
         type: "select_with_note",
@@ -95,12 +94,6 @@ const FIELD_SECTIONS = [
         options: [ "不明","コア","フル","部門による", "なし",],
       },
       {
-        key: "noTransfer",
-        label: "転勤の有無",
-        type: "select",
-        options: ["不明", "転勤なし", "転勤あり"],
-      },
-      {
         key: "monthlyOvertimeHours",
         label: "月残業時間",
         type: "number",
@@ -112,14 +105,14 @@ const FIELD_SECTIONS = [
   {
     title: "募集・採用",
     fields: [
+      { key: "jobType", label: "希望職種・募集職種", type: "textarea" },
+      { key: "requiredTalent", label: "求められる人材/向いている人", type: "textarea" },
       {
-      key: "myPageUrl",
-      label: "マイページURL",
-      type: "url",
-      personal: true,
-      placeholder: "https://... ",
-    },
-    
+        key: "noExperienceOk",
+        label: "未経験でも〇か",
+        type: "select",
+        options: ["不明", "可", "条件付きで可", "不可"],
+      },
       { key: "internship", label: "インターン情報", type: "textarea" },
       {
         key: "recruitmentInfo",
@@ -127,6 +120,13 @@ const FIELD_SECTIONS = [
         type: "textarea",
         placeholder: "募集人数、選考フロー、応募資格など",
       },
+      {
+      key: "myPageUrl",
+      label: "マイページURL",
+      type: "url",
+      personal: true,
+      placeholder: "https://... ",
+    },
     ],
   },
 ];
