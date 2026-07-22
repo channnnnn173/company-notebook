@@ -106,6 +106,7 @@ const FIELD_SECTIONS = [
         type: "number",
         unit: "h",
       },
+      { key: "memoStyle", label: "メモ", type: "textarea" },
     ],
   },
   {
