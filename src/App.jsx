@@ -157,6 +157,8 @@ function emptyForm() {
   initial.revenue="";
   initial.employees="";
 
+  initial.memoStyle="";
+
   return initial;
 }
 
@@ -524,6 +526,8 @@ export default function App() {
     f.revenue = company.revenue || company.data?.revenue || "";
     f.employees = company.employees || company.data?.revenue || "";
 
+    f.memoStyle = company.memoStyle || company.data?.memoStyle || "";
+
     setForm(f);
     setEditingId(company.id);
     setAiError("");
@@ -579,6 +583,8 @@ export default function App() {
 
       payloadFields.revenue = form.myPageId || "";
       payloadFields.employees = form.myPagePw || "";
+
+      payloadFields.memoStyle = form.memoStyle || "";
 
       customFields.forEach((cf) => {
         payloadFields[cf.key] = form[cf.key] || "";
