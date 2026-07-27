@@ -1,9 +1,7 @@
-import { useState, useEffect, useMemo, Fragment } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Building2,
-  MapPin,
   Banknote,
-  Briefcase,
   Search,
   Sparkles,
   Loader2,
@@ -167,33 +165,11 @@ function parseAiJson(text) {
   return JSON.parse(cleaned);
 }
 
-function overtimeTone(hours) {
-  if (hours === null || hours === undefined || hours === "") return null;
-  const n = Number(hours);
-  if (n >= 30) return "rose";
-  if (n >= 20) return "amber";
-  return "emerald";
-}
-
 function FileTab({ index }) {
   return (
     <div className="absolute -top-3 left-5 px-2 py-0.5 bg-emerald-700 text-stone-50 text-xs tracking-widest rounded-t">
       No.{String(index + 1).padStart(3, "0")}
     </div>
-  );
-}
-
-function Tag({ children, tone = "slate" }) {
-  const tones = {
-    slate: "bg-slate-100 text-slate-700 border-slate-200",
-    emerald: "bg-emerald-50 text-emerald-800 border-emerald-200",
-    amber: "bg-amber-50 text-amber-800 border-amber-200",
-    rose: "bg-rose-50 text-rose-700 border-rose-200",
-  };
-  return (
-    <span className={`inline-block px-2 py-0.5 text-xs rounded border ${tones[tone]} whitespace-nowrap`}>
-      {children}
-    </span>
   );
 }
 
@@ -272,6 +248,15 @@ export default function App() {
   const [aiError, setAiError] = useState("");
   const [user, setUser] = useState(null);
 
+  const [keyword, setKeyword] = useState("");
+  const [locationFilter, setLocationFilter] = useState([]);
+  const [conditionFilter, setConditionFilter] = useState([]);
+  const [salaryMin, setSalaryMin] = useState("");
+  const [salaryMax, setSalaryMax] = useState("");
+  const [overtimeMax, setOvertimeMax] = useState("");
+  const [showFilters, setShowFilters] = useState(true);
+
+  // Auth 監視
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
@@ -284,31 +269,7 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  const [keyword, setKeyword] = useState("");
-  const [locationFilter, setLocationFilter] = useState([]);
-  const [conditionFilter, setConditionFilter] = useState([]);
-  const [salaryMin, setSalaryMin] = useState("");
-  const [salaryMax, setSalaryMax] = useState("");
-  const [overtimeMax, setOvertimeMax] = useState("");
-  const [showFilters, setShowFilters] = useState(true);
-
-  const [selectedIds, setSelectedIds] = useState([]);
-
-  const handleSignIn = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: window.location.origin + '/company-notebook/'
-      }
-    });
-    if (error) console.error("ログインエラー:", error.message);
-  };
-
-  const handleSignOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) console.error("ログアウトエラー:", error.message);
-  };
-
+  // Supabase & LocalStorage データ読み込み
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -345,6 +306,7 @@ export default function App() {
     fetchData();
   }, []);
 
+  // カスタム項目の保存
   useEffect(() => {
     if (!loaded) return;
     try {
@@ -353,6 +315,33 @@ export default function App() {
       console.error("カスタム項目保存エラー:", e);
     }
   }, [customFields, loaded]);
+
+  // 追加項目の操作関数
+  function addCustomField() {
+    if (!newCustomLabel.trim()) return;
+    const key = `custom_${Date.now()}`;
+    const newField = { key, label: newCustomLabel.trim() };
+    setCustomFields((prev) => [...prev, newField]);
+    setNewCustomLabel("");
+  }
+
+  function removeCustomField(key) {
+    if (!window.confirm("この追加項目を削除しますか？")) return;
+    setCustomFields((prev) => prev.filter((cf) => cf.key !== key));
+  }
+
+  const handleSignIn = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin + '/company-notebook/' }
+    });
+    if (error) console.error("ログインエラー:", error.message);
+  };
+
+  const handleSignOut = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) console.error("ログアウトエラー:", error.message);
+  };
 
   function exportData() {
     const blob = new Blob([JSON.stringify(companies, null, 2)], { type: "application/json" });
@@ -389,12 +378,6 @@ export default function App() {
     e.target.value = "";
   }
 
-  const allLocations = useMemo(() => {
-    const set = new Set();
-    companies.forEach((c) => (c.locations || []).forEach((l) => set.add(l)));
-    return Array.from(set);
-  }, [companies]);
-
   const textSearchValue = (c) =>
     [
       c.name,
@@ -423,10 +406,6 @@ export default function App() {
     });
   }, [companies, keyword, locationFilter, conditionFilter, salaryMin, salaryMax, overtimeMax]);
 
-  function toggleFromList(value, list, setList) {
-    setList(list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
-  }
-
   function resetFilters() {
     setKeyword("");
     setLocationFilter([]);
@@ -454,19 +433,17 @@ export default function App() {
       else f[field.key] = company[field.key] ?? f[field.key];
       if (field.noteKey) f[field.noteKey] = company[field.noteKey] ?? f[field.noteKey];
     });
+
+    f.name = company.name || "";
+    f.myPageId = company.myPageId ?? company.data?.myPageId ?? "";
+    f.myPagePw = company.myPagePw ?? company.data?.myPagePw ?? "";
+    f.revenue = company.revenue ?? company.data?.revenue ?? "";
+    f.employees = company.employees ?? company.data?.employees ?? "";
+    f.memoStyle = company.memoStyle ?? company.data?.memoStyle ?? "";
+
     customFields.forEach((cf) => {
-      f[cf.key] = company[cf.key] || "";
+      f[cf.key] = company[cf.key] ?? company.data?.[cf.key] ?? "";
     });
-    f.name = company.name;
-
-    f.myPageId = company.myPageId || company.data?.myPageId || "";
-    f.myPagePw = company.myPagePw || company.data?.myPagePw || "";
-    
-    // 修正箇所：employeesがrevenueを参照していた部分を正しく修正
-    f.revenue = company.revenue || company.data?.revenue || "";
-    f.employees = company.employees || company.data?.employees || "";
-
-    f.memoStyle = company.memoStyle || company.data?.memoStyle || "";
 
     setForm(f);
     setEditingId(company.id);
@@ -503,11 +480,8 @@ export default function App() {
 
       payloadFields.myPageId = form.myPageId || "";
       payloadFields.myPagePw = form.myPagePw || "";
-
-      // 修正箇所：ID/PWが誤って代入されていた部分を正しく修正
       payloadFields.revenue = form.revenue || "";
       payloadFields.employees = form.employees || "";
-
       payloadFields.memoStyle = form.memoStyle || "";
 
       customFields.forEach((cf) => {
@@ -570,7 +544,6 @@ export default function App() {
       if (error) throw error;
 
       setCompanies((prev) => prev.filter((c) => c.id !== id));
-      setSelectedIds((prev) => prev.filter((i) => i !== id));
     } catch (e) {
       alert("削除に失敗しました: " + e.message);
     }
@@ -777,14 +750,11 @@ export default function App() {
           <div className="grid sm:grid-cols-2 gap-5">
             {filtered.map((c) => {
               const originalIndex = companies.findIndex((x) => x.id === c.id);
-              const selected = selectedIds.includes(c.id);
 
               return (
                 <div
                   key={c.id}
-                  className={`relative bg-white border rounded-md pt-5 pb-4 px-4 transition-shadow ${
-                    selected ? "border-emerald-500 ring-1 ring-emerald-400" : "border-stone-200"
-                  }`}
+                  className="relative bg-white border border-stone-200 rounded-md pt-5 pb-4 px-4 transition-shadow"
                 >
                   <FileTab index={originalIndex} />
                   
@@ -836,6 +806,29 @@ export default function App() {
                     {c.features && <p className="line-clamp-2"><span className="font-bold text-slate-700">特徴:</span> {c.features}</p>}
                     {c.salary && <p><span className="font-bold text-slate-700">平均年収:</span> {c.salary}万円</p>}
                   </div>
+
+                  {/* ★ カスタム追加項目のカード表示 */}
+                  {customFields.some((cf) => c[cf.key]) && (
+                    <div className="mt-2 pt-2 border-t border-stone-100 grid grid-cols-2 gap-1 text-xs">
+                      {customFields.map((cf) => {
+                        if (!c[cf.key]) return null;
+                        return (
+                          <div key={cf.key} className="text-slate-600">
+                            <span className="font-bold text-slate-700">{cf.label}: </span>
+                            <span>{c[cf.key]}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* マイページ情報 */}
+                  {(c.myPageId || c.myPagePw) && (
+                    <div className="mt-2 p-2 bg-stone-100 rounded text-xs text-slate-700 flex flex-wrap gap-3">
+                      {c.myPageId && <div><span className="font-bold text-slate-500">ID:</span> {c.myPageId}</div>}
+                      {c.myPagePw && <div><span className="font-bold text-slate-500">PW:</span> {c.myPagePw}</div>}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -865,11 +858,20 @@ export default function App() {
                   onChange={(e) => updateField("name", e.target.value)}
                   className="flex-1 border border-stone-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-white"
                 />
+                <button
+                  type="button"
+                  onClick={generateWithAi}
+                  disabled={aiLoading || !form.name.trim()}
+                  className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded text-xs flex items-center gap-1 disabled:opacity-50 transition-colors"
+                >
+                  {aiLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                  AIで補完
+                </button>
               </div>
               {aiError && <p className="text-xs text-rose-600 mt-1">{aiError}</p>}
             </div>
 
-            {/* ★ 売上高・従業員数（編集画面用・リアルタイム計算） */}
+            {/* 売上高・従業員数 */}
             <div className="p-3 bg-stone-50 rounded-lg border border-stone-200">
               <span className="block text-xs font-bold text-stone-700 mb-2">業績・規模</span>
               <div className="flex flex-wrap items-center gap-3">
@@ -930,6 +932,55 @@ export default function App() {
               </div>
             ))}
 
+            {/* ★ 独自追加項目セクション（追加・削除・入力） */}
+            <div className="p-3 bg-stone-50 rounded-lg border border-stone-200 space-y-3">
+              <span className="text-xs font-bold text-stone-700 block">独自追加項目</span>
+
+              {/* 追加済みカスタム項目の入力欄 */}
+              {customFields.length > 0 && (
+                <div className="space-y-2">
+                  {customFields.map((cf) => (
+                    <div key={cf.key} className="flex items-center gap-2">
+                      <label className="w-1/3 text-xs font-semibold text-slate-700 truncate">{cf.label}</label>
+                      <input
+                        type="text"
+                        value={form[cf.key] || ""}
+                        onChange={(e) => updateField(cf.key, e.target.value)}
+                        className="flex-1 border border-stone-300 rounded px-2 py-1 text-xs bg-white"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeCustomField(cf.key)}
+                        className="text-slate-400 hover:text-rose-600 p-1"
+                        title="項目を削除"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* 新規カスタム項目追加フォーム */}
+              <div className="flex items-center gap-2 pt-2 border-t border-stone-200">
+                <input
+                  type="text"
+                  placeholder="新しい項目名（例：選考倍率、グループ会社など）"
+                  value={newCustomLabel}
+                  onChange={(e) => setNewCustomLabel(e.target.value)}
+                  className="flex-1 border border-stone-300 rounded px-2 py-1 text-xs bg-white"
+                />
+                <button
+                  type="button"
+                  onClick={addCustomField}
+                  className="bg-slate-700 hover:bg-slate-800 text-white text-xs px-3 py-1 rounded shrink-0 flex items-center gap-1"
+                >
+                  <Plus className="w-3 h-3" />
+                  項目を追加
+                </button>
+              </div>
+            </div>
+
             {/* ID / PW 欄 */}
             <div className="p-3 bg-stone-50 rounded-lg border border-stone-200 space-y-2">
               <span className="block text-xs font-bold text-stone-700">マイページログイン情報（自分用メモ）</span>
@@ -942,7 +993,7 @@ export default function App() {
                   className="border border-stone-300 rounded px-2 py-1 text-xs bg-white"
                 />
                 <input
-                  type="password"
+                  type="text"
                   placeholder="PW"
                   value={form.myPagePw || ""}
                   onChange={(e) => updateField("myPagePw", e.target.value)}
