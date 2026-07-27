@@ -19,6 +19,26 @@ import {
 import { supabase } from "./supabaseClient";
 
 // ---------------------------------------------------------------------------
+// ヘルパー関数（データのクリーニング用）
+// ---------------------------------------------------------------------------
+function isValidNumber(val) {
+  if (val === null || val === undefined || val === "") return false;
+  return !isNaN(Number(val));
+}
+
+// 過去のバグでIDが売上高に入ってしまっているデータを除外する処理
+function cleanCompanyData(data) {
+  const cleaned = { ...data };
+  if (cleaned.revenue && (!isValidNumber(cleaned.revenue) || cleaned.revenue === cleaned.myPageId)) {
+    cleaned.revenue = "";
+  }
+  if (cleaned.employees && (!isValidNumber(cleaned.employees) || cleaned.employees === cleaned.myPagePw)) {
+    cleaned.employees = "";
+  }
+  return cleaned;
+}
+
+// ---------------------------------------------------------------------------
 // フィールド定義
 // ---------------------------------------------------------------------------
 const FIELD_SECTIONS = [
@@ -269,7 +289,7 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Supabase & LocalStorage データ読み込み
+  // Supabase & LocalStorage データ読み込み（自動クリーニング付き）
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -281,12 +301,15 @@ export default function App() {
         if (error) throw error;
 
         if (data) {
-          const loadedCompanies = data.map((item) => ({
-            id: item.id,
-            name: item.name,
-            addedAt: new Date(item.created_at).getTime(),
-            ...item.data,
-          }));
+          const loadedCompanies = data.map((item) => {
+            const cleanedData = cleanCompanyData(item.data || {});
+            return {
+              id: item.id,
+              name: item.name,
+              addedAt: new Date(item.created_at).getTime(),
+              ...cleanedData,
+            };
+          });
           setCompanies(loadedCompanies.map(normalizeCompany));
         }
       } catch (e) {
@@ -437,8 +460,14 @@ export default function App() {
     f.name = company.name || "";
     f.myPageId = company.myPageId ?? company.data?.myPageId ?? "";
     f.myPagePw = company.myPagePw ?? company.data?.myPagePw ?? "";
-    f.revenue = company.revenue ?? company.data?.revenue ?? "";
-    f.employees = company.employees ?? company.data?.employees ?? "";
+
+    // 数値以外（ID等）が入っている場合は空文字にリセット
+    const rawRevenue = company.revenue ?? company.data?.revenue ?? "";
+    f.revenue = isValidNumber(rawRevenue) ? String(rawRevenue) : "";
+
+    const rawEmployees = company.employees ?? company.data?.employees ?? "";
+    f.employees = isValidNumber(rawEmployees) ? String(rawEmployees) : "";
+
     f.memoStyle = company.memoStyle ?? company.data?.memoStyle ?? "";
 
     customFields.forEach((cf) => {
@@ -478,10 +507,11 @@ export default function App() {
         if (field.noteKey) payloadFields[field.noteKey] = form[field.noteKey] ?? "";
       });
 
+      // 完全に独立して代入
       payloadFields.myPageId = form.myPageId || "";
       payloadFields.myPagePw = form.myPagePw || "";
-      payloadFields.revenue = form.revenue || "";
-      payloadFields.employees = form.employees || "";
+      payloadFields.revenue = isValidNumber(form.revenue) ? String(form.revenue) : "";
+      payloadFields.employees = isValidNumber(form.employees) ? String(form.employees) : "";
       payloadFields.memoStyle = form.memoStyle || "";
 
       customFields.forEach((cf) => {
@@ -771,27 +801,28 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* 売上高・従業員数・1人あたり売上（表示用） */}
+                  {/* 売上高・従業員数・1人あたり売上（数値でない文字列は自動ガードしてハイフン表示） */}
                   <div className="flex flex-wrap items-center gap-3 my-2 p-2 bg-slate-50 rounded-lg border border-slate-200 text-xs">
                     <div>
                       <span className="text-slate-500">売上高: </span>
                       <span className="font-bold text-slate-800">
-                        {c.revenue ? `${c.revenue}億円` : "-"}
+                        {isValidNumber(c.revenue) ? `${c.revenue}億円` : "-"}
                       </span>
                     </div>
 
                     <div>
                       <span className="text-slate-500">従業員: </span>
                       <span className="font-bold text-slate-800">
-                        {c.employees ? `${c.employees}人` : "-"}
+                        {isValidNumber(c.employees) ? `${c.employees}人` : "-"}
                       </span>
                     </div>
 
                     <div className="bg-emerald-100 text-emerald-900 px-2 py-0.5 rounded font-bold">
                       1人あたり: {(() => {
+                        if (!isValidNumber(c.revenue) || !isValidNumber(c.employees)) return "-";
                         const rev = parseFloat(c.revenue);
                         const emp = parseFloat(c.employees);
-                        if (!rev || !emp || emp <= 0) return "-";
+                        if (rev <= 0 || emp <= 0) return "-";
                         
                         const perEmp = (rev * 10000) / emp; 
                         return perEmp >= 10000
@@ -894,9 +925,10 @@ export default function App() {
                   <span className="text-xs font-bold text-emerald-800">1人あたり:</span>
                   <span className="text-xs font-extrabold text-emerald-900">
                     {(() => {
+                      if (!isValidNumber(form.revenue) || !isValidNumber(form.employees)) return "-";
                       const rev = parseFloat(form.revenue);
                       const emp = parseFloat(form.employees);
-                      if (!rev || !emp || emp <= 0) return "-";
+                      if (rev <= 0 || emp <= 0) return "-";
                       
                       const perEmp = (rev * 10000) / emp; 
                       return perEmp >= 10000
@@ -923,11 +955,10 @@ export default function App() {
               </div>
             ))}
 
-            {/* ★ 独自追加項目セクション（追加・削除・入力） */}
+            {/* ★ 独自追加項目セクション */}
             <div className="p-3 bg-stone-50 rounded-lg border border-stone-200 space-y-3">
               <span className="text-xs font-bold text-stone-700 block">独自追加項目</span>
 
-              {/* 追加済みカスタム項目の入力欄 */}
               {customFields.length > 0 && (
                 <div className="space-y-2">
                   {customFields.map((cf) => (
@@ -952,7 +983,6 @@ export default function App() {
                 </div>
               )}
 
-              {/* 新規カスタム項目追加フォーム */}
               <div className="flex items-center gap-2 pt-2 border-t border-stone-200">
                 <input
                   type="text"
@@ -984,7 +1014,7 @@ export default function App() {
                   className="border border-stone-300 rounded px-2 py-1 text-xs bg-white"
                 />
                 <input
-                  type="text"
+                  type="password"
                   placeholder="PW"
                   value={form.myPagePw || ""}
                   onChange={(e) => updateField("myPagePw", e.target.value)}
