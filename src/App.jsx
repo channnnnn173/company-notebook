@@ -524,7 +524,7 @@ export default function App() {
     f.myPagePw = company.myPagePw || company.data?.myPagePw || "";
     
     f.revenue = company.revenue || company.data?.revenue || "";
-    f.employees = company.employees || company.data?.revenue || "";
+    f.employees = company.employees || company.data?.employees || "";
 
     f.memoStyle = company.memoStyle || company.data?.memoStyle || "";
 
@@ -581,8 +581,8 @@ export default function App() {
       payloadFields.myPageId = form.myPageId || "";
       payloadFields.myPagePw = form.myPagePw || "";
 
-      payloadFields.revenue = form.myPageId || "";
-      payloadFields.employees = form.myPagePw || "";
+      payloadFields.revenue = form.revenue || "";
+      payloadFields.employees = form.employees || "";
 
       payloadFields.memoStyle = form.memoStyle || "";
 
@@ -942,6 +942,41 @@ export default function App() {
                     </div>
                   </div>
 
+                  {/* 売上高・従業員数・1人あたり売上の表示用 */}
+                  <div className="flex flex-wrap items-center gap-3 my-2 p-2 bg-slate-50 rounded-lg border border-slate-200 text-xs">
+                    {/* 売上高 */}
+                    <div>
+                      <span className="text-slate-500">売上高: </span>
+                      <span className="font-bold text-slate-800">
+                        {c.revenue ? `${c.revenue}億円` : "-"}
+                      </span>
+                    </div>
+
+                    {/* 従業員数 */}
+                    <div>
+                      <span className="text-slate-500">従業員: </span>
+                      <span className="font-bold text-slate-800">
+                        {c.employees ? `${c.employees}人` : "-"}
+                      </span>
+                    </div>
+
+                    {/* 1人あたり売上高（自動計算） */}
+                    <div className="bg-emerald-100 text-emerald-900 px-2 py-0.5 rounded font-bold">
+                      1人あたり: {(() => {
+                        const rev = parseFloat(c.revenue);
+                        const emp = parseFloat(c.employees);
+                        if (!rev || !emp || emp <= 0) return "-";
+                        
+                        const perEmp = (rev * 10000) / emp; 
+                        return perEmp >= 10000
+                          ? `${(perEmp / 10000).toFixed(1)}億円`
+                          : `${Math.round(perEmp).toLocaleString()}万円`;
+                      })()}
+                    </div>
+                  </div>  
+                  
+
+
                   <p className="text-sm text-slate-600 mb-3 min-h-[2.5em]">{c.business || "事業内容は未入力です"}</p>
 
                   <div className="flex items-center gap-1.5 text-sm mb-2">
@@ -952,50 +987,38 @@ export default function App() {
                     )}
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-3 my-3 p-2 bg-stone-50 rounded-lg border border-stone-200">
-                    <div className="flex items-center gap-1">
-                      <span className="text-xs font-bold text-stone-600">売上高;</span>
-                      <input
-                        type="number"
-                        value={form.revenue || ""}
-                        onChange={(e)=>updateField("revenue", e.target.value)}
-                        placeholder="100"
-                        className="w-20 border border-stone-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
-                        />
-                        <span className="text-xs text-stone-500">億円</span>
+                  {/* カード表示用（文字として各企業のデータを個別に表示） */}
+                  <div className="flex flex-wrap items-center gap-3 my-2 p-2 bg-stone-50 rounded-lg border border-stone-200 text-xs">
+                    {/* 売上高 */}
+                    <div>
+                      <span className="text-stone-500">売上高: </span>
+                      <span className="font-bold text-stone-800">
+                        {company.revenue ? `${company.revenue}億円` : "-"}
+                       </span>
                     </div>
 
-                    <div className="flex items-center gap-1">
-    <span className="text-xs font-bold text-stone-600">従業員数:</span>
-    <input
-      type="number"
-      value={form.employees || ""}
-      onChange={(e) => updateField("employees", e.target.value)}
-      placeholder="500"
-      className="w-20 border border-stone-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
-    />
-    <span className="text-xs text-stone-500">人</span>
-  </div>
+                     {/* 従業員数 */}
+                    <div>
+                      <span className="text-stone-500">従業員: </span>
+                      <span className="font-bold text-stone-800">
+                        {company.employees ? `${company.employees}人` : "-"}
+                      </span>
+                    </div>
 
-  {/* 1人当たり売上（自動計算結果） */}
-  <div className="flex items-center gap-1 bg-emerald-100 px-2.5 py-1 rounded-md border border-emerald-300">
-    <span className="text-xs font-bold text-emerald-800">1人あたり:</span>
-    <span className="text-sm font-extrabold text-emerald-900">
-      {(() => {
-        const rev = parseFloat(form.revenue);
-        const emp = parseFloat(form.employees);
-        if (!rev || !emp || emp <= 0) return "-";
-        
-        // 売上(億円) ÷ 従業員数(人) から「万円」を算出
-        const perEmp = (rev * 10000) / emp; 
-        
-        return perEmp >= 10000
-          ? `${(perEmp / 10000).toFixed(1)}億円/人`
-          : `${Math.round(perEmp).toLocaleString()}万円/人`;
-      })()}
-    </span>
-  </div>
-</div>   
+                     {/* 1人あたり売上高（自動計算） */}
+                     <div className="bg-emerald-100 text-emerald-900 px-2 py-0.5 rounded font-bold">
+                       1人あたり: {(() => {
+                        const rev = parseFloat(company.revenue);
+                        const emp = parseFloat(company.employees);
+                        if (!rev || !emp || emp <= 0) return "-";
+      
+                        const perEmp = (rev * 10000) / emp; 
+                        return perEmp >= 10000
+                         ? `${(perEmp / 10000).toFixed(1)}億円`
+                         : `${Math.round(perEmp).toLocaleString()}万円`;
+                      })()}
+                     </div>
+                    </div>
 
                   {c.locations && c.locations.length > 0 && (
                     <div className="flex flex-wrap gap-1 mb-2">
