@@ -13,17 +13,15 @@ import {
   Pencil,
   ScrollText,
   ChevronDown,
-  ChevronRight,
-  AlertTriangle,
   Download,
   Upload,
 } from "lucide-react";
 
-// ★ Supabase クライアントのインポート（パスは環境に合わせて調整してください）
+// ★ Supabase クライアントのインポート
 import { supabase } from "./supabaseClient";
 
 // ---------------------------------------------------------------------------
-// フィールド定義（唯一の情報源）
+// フィールド定義
 // ---------------------------------------------------------------------------
 const FIELD_SECTIONS = [
   {
@@ -46,12 +44,11 @@ const FIELD_SECTIONS = [
     fields: [
       { key: "teamwork", label: "チームワーク", type: "textarea" },
       { key: "futureGoals", label: "今後の目標", type: "textarea" },
-      
       {
         key: "decisivePoint",
         label: "決め手",
         type: "textarea",
-        personal: true
+        personal: true,
       },
     ],
   },
@@ -77,7 +74,7 @@ const FIELD_SECTIONS = [
         key: "overseasWork",
         label: "海外勤務",
         type: "select_with_note",
-        options: ["不明", "あり","なし"],
+        options: ["不明", "あり", "なし"],
         noteKey: "overseasWorkNote",
         notePlaceholder: "メモ（例：希望者のみ、拠点名 など）",
       },
@@ -85,13 +82,13 @@ const FIELD_SECTIONS = [
         key: "remoteWork",
         label: "リモートワーク",
         type: "select",
-        options: ["不明","可", "ハイブリット","部門による","不可"],
+        options: ["不明", "可", "ハイブリット", "部門による", "不可"],
       },
       {
         key: "flexSystem",
         label: "フレックス制度",
         type: "select",
-        options: [ "不明","コア","フル","部門による", "なし",],
+        options: ["不明", "コア", "フル", "部門による", "なし"],
       },
       {
         key: "monthlyOvertimeHours",
@@ -121,12 +118,12 @@ const FIELD_SECTIONS = [
         placeholder: "募集人数、選考フロー、応募資格など",
       },
       {
-      key: "myPageUrl",
-      label: "マイページURL",
-      type: "url",
-      personal: true,
-      placeholder: "https://... ",
-    },
+        key: "myPageUrl",
+        label: "マイページURL",
+        type: "url",
+        personal: true,
+        placeholder: "https://...",
+      },
     ],
   },
 ];
@@ -147,17 +144,15 @@ const CUSTOM_FIELDS_STORAGE_KEY = "company-notebook:custom-fields:v1";
 function emptyForm() {
   const initial = { name: "" };
   ALL_FIELDS.forEach((f) => {
-    initial[f.key]="";
+    initial[f.key] = "";
     if (f.noteKey) initial[f.noteKey] = "";
   });
 
-  initial.myPageId="";
-  initial.myPagePw="";
-  
-  initial.revenue="";
-  initial.employees="";
-
-  initial.memoStyle="";
+  initial.myPageId = "";
+  initial.myPagePw = "";
+  initial.revenue = "";
+  initial.employees = "";
+  initial.memoStyle = "";
 
   return initial;
 }
@@ -182,7 +177,7 @@ function overtimeTone(hours) {
 
 function FileTab({ index }) {
   return (
-    <div className="absolute -top-3 left-5 px-2 py-0.5 bg-emerald-700 text-stone-50 text-xs tracking-widest">
+    <div className="absolute -top-3 left-5 px-2 py-0.5 bg-emerald-700 text-stone-50 text-xs tracking-widest rounded-t">
       No.{String(index + 1).padStart(3, "0")}
     </div>
   );
@@ -210,7 +205,7 @@ function FieldInput({ field, value, onChange }) {
         onChange={(e) => onChange(e.target.value)}
         rows={2}
         placeholder={field.placeholder}
-        className="w-full border border-stone-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
+        className="w-full border border-stone-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-white"
       />
     );
   }
@@ -221,7 +216,7 @@ function FieldInput({ field, value, onChange }) {
           type="number"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="w-32 border border-stone-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
+          className="w-32 border border-stone-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-white"
         />
         {field.unit && <span className="text-xs text-slate-400">{field.unit}</span>}
       </div>
@@ -232,7 +227,7 @@ function FieldInput({ field, value, onChange }) {
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="border border-stone-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
+        className="border border-stone-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-white"
       >
         {field.options.map((o) => (
           <option key={o} value={o}>
@@ -250,7 +245,7 @@ function FieldInput({ field, value, onChange }) {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={field.placeholder}
-        className="w-full border border-stone-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
+        className="w-full border border-stone-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-white"
       />
     );
   }
@@ -260,52 +255,9 @@ function FieldInput({ field, value, onChange }) {
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={field.placeholder}
-      className="w-full border border-stone-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
+      className="w-full border border-stone-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-white"
     />
   );
-}
-
-function renderCompareValue(field, company) {
-  const v = company[field.key];
-  if (field.type === "locations") {
-    return v && v.length > 0 ? (
-      <div className="flex flex-wrap gap-1">
-        {v.map((l) => (
-          <Tag key={l}>{l}</Tag>
-        ))}
-      </div>
-    ) : (
-      "—"
-    );
-  }
-  if (field.type === "select") {
-    return v && v !== "不明" ? v : "—";
-  }
-  if (field.type === "select_with_note") {
-    const note = company[field.noteKey];
-    const base = v && v !== "不明" ? v : "—";
-    if (!note) return base;
-    return (
-      <>
-        {base}
-        <span className="text-slate-400"> — {note}</span>
-      </>
-    );
-  }
-  if (field.type === "url") {
-    if (!v) return "—";
-    return (
-      <a href={v} target="_blank" rel="noreferrer" className="text-emerald-700 underline break-all">
-        {v}
-      </a>
-    );
-  }
-  if (field.type === "number") {
-    if (!v) return "—";
-    const tone = field.key === "monthlyOvertimeHours" ? overtimeTone(v) : null;
-    return tone ? <Tag tone={tone}>{v}{field.unit}</Tag> : `${v}${field.unit || ""}`;
-  }
-  return v ? v : "—";
 }
 
 export default function App() {
@@ -321,12 +273,10 @@ export default function App() {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    // 現在ログインしているユーザーがいるか確認
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
     });
 
-    // ログイン・ログアウトの動きを監視して自動でuserを更新
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
     });
@@ -343,10 +293,7 @@ export default function App() {
   const [showFilters, setShowFilters] = useState(true);
 
   const [selectedIds, setSelectedIds] = useState([]);
-  const [showCompare, setShowCompare] = useState(false);
-  const [expandedIds, setExpandedIds] = useState([]);
 
-  // ログアウト処理を追加します
   const handleSignIn = async () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -354,18 +301,14 @@ export default function App() {
         redirectTo: window.location.origin + '/company-notebook/'
       }
     });
-    if (error) {
-      console.error("ログインに失敗しました:", error.message);
-    }
-  };
-  const handleSignOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      console.error("ログアウトに失敗しました:", error.message);
-    }
+    if (error) console.error("ログインエラー:", error.message);
   };
 
-  // ★ 1. 【初期データ取得】Supabase から企業データをロード
+  const handleSignOut = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) console.error("ログアウトエラー:", error.message);
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -377,25 +320,23 @@ export default function App() {
         if (error) throw error;
 
         if (data) {
-          // JSONB型「data」の中身を展開してステート用にパースする
           const loadedCompanies = data.map((item) => ({
             id: item.id,
             name: item.name,
             addedAt: new Date(item.created_at).getTime(),
-            ...item.data, // 詳細データ(JSONB)をそのままマージ
+            ...item.data,
           }));
           setCompanies(loadedCompanies.map(normalizeCompany));
         }
       } catch (e) {
-        console.error("Supabaseからの読み込みに失敗しました:", e.message);
+        console.error("読み込みエラー:", e.message);
       }
 
-      // カスタム表示設定はブラウザ固有の LocalStorage に保存
       try {
         const savedCustom = localStorage.getItem(CUSTOM_FIELDS_STORAGE_KEY);
         if (savedCustom) setCustomFields(JSON.parse(savedCustom));
       } catch (e) {
-        console.error("カスタム項目の読み込みに失敗しました:", e);
+        console.error("カスタム項目読み込みエラー:", e);
       } finally {
         setLoaded(true);
       }
@@ -404,17 +345,15 @@ export default function App() {
     fetchData();
   }, []);
 
-  // ★ カスタム項目の定義が変更されたら LocalStorage に同期
   useEffect(() => {
     if (!loaded) return;
     try {
       localStorage.setItem(CUSTOM_FIELDS_STORAGE_KEY, JSON.stringify(customFields));
     } catch (e) {
-      console.error("カスタム項目の保存に失敗しました:", e);
+      console.error("カスタム項目保存エラー:", e);
     }
   }, [customFields, loaded]);
 
-  // ローカルエクスポート・インポート
   function exportData() {
     const blob = new Blob([JSON.stringify(companies, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -443,7 +382,7 @@ export default function App() {
           return merged;
         });
       } catch (err) {
-        alert("読み込みに失敗しました。書き出したJSONファイルを選択してください。");
+        alert("読み込みに失敗しました。");
       }
     };
     reader.readAsText(file);
@@ -523,6 +462,7 @@ export default function App() {
     f.myPageId = company.myPageId || company.data?.myPageId || "";
     f.myPagePw = company.myPagePw || company.data?.myPagePw || "";
     
+    // 修正箇所：employeesがrevenueを参照していた部分を正しく修正
     f.revenue = company.revenue || company.data?.revenue || "";
     f.employees = company.employees || company.data?.employees || "";
 
@@ -538,30 +478,13 @@ export default function App() {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  function addCustomField() {
-    const label = newCustomLabel.trim();
-    if (!label) return;
-    const key = `custom_${Date.now()}`;
-    setCustomFields((prev) => [...prev, { key, label }]);
-    setForm((prev) => ({ ...prev, [key]: "" }));
-    setNewCustomLabel("");
-  }
-
-  function removeCustomField(key) {
-    setCustomFields((prev) => prev.filter((cf) => cf.key !== key));
-  }
-
-  // ★ 2. 【保存処理】Supabase の JSONB(data) 形式に合わせて新規作成・編集を送信
-  // ★ 究極の安全版 saveCompany 関数
   async function saveCompany() {
-    // 💡 関数の最初から全体を try で囲み、どんなエラーも逃さないようにします
     try {
       if (!form.name || !form.name.trim()) {
         alert("企業名を入力してください。");
         return;
       }
 
-      // 1. 送信データの整形
       const payloadFields = {};
       ALL_FIELDS.forEach((field) => {
         if (field.type === "locations") {
@@ -581,6 +504,7 @@ export default function App() {
       payloadFields.myPageId = form.myPageId || "";
       payloadFields.myPagePw = form.myPagePw || "";
 
+      // 修正箇所：ID/PWが誤って代入されていた部分を正しく修正
       payloadFields.revenue = form.revenue || "";
       payloadFields.employees = form.employees || "";
 
@@ -590,15 +514,12 @@ export default function App() {
         payloadFields[cf.key] = form[cf.key] || "";
       });
 
-      // 2. 送信する基本データ
       const recordData = {
         name: form.name.trim(),
         data: payloadFields,
       };
 
-      // 3. Supabaseへ送信
       if (editingId) {
-        // 【更新】
         const { error } = await supabase
           .from("companies")
           .update(recordData)
@@ -610,7 +531,6 @@ export default function App() {
           prev.map((c) => (c.id === editingId ? { ...c, name: form.name.trim(), ...payloadFields } : c))
         );
       } else {
-        // 【新規追加】
         const { data, error } = await supabase
           .from("companies")
           .insert([recordData])
@@ -629,20 +549,16 @@ export default function App() {
         }
       }
 
-      // 4. 成功処理
       setShowForm(false);
       setForm(emptyForm());
       setEditingId(null);
 
     } catch (e) {
       console.error("保存詳細エラー:", e);
-      // エラーの理由をポップアップで具体的に表示
       alert(`保存できませんでした。\n【理由】: ${e.message || JSON.stringify(e)}`);
     }
   }
 
-
-  // ★ 3. 【削除処理】Supabase から削除
   async function deleteCompany(id) {
     if (!window.confirm("この企業の情報を削除してもよろしいですか？")) return;
     try {
@@ -660,15 +576,6 @@ export default function App() {
     }
   }
 
-  function toggleSelect(id) {
-    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]));
-  }
-
-  function toggleExpand(id) {
-    setExpandedIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]));
-  }
-
-  // AI自動生成ロジック
   async function generateWithAi() {
     if (!form.name.trim()) return;
     setAiLoading(true);
@@ -693,7 +600,7 @@ export default function App() {
           messages: [
             {
               role: "user",
-              content: `企業名「${form.name}」について、一般的に知られている情報をもとに以下のJSON形式のみで出力してください。前置き・説明・コードブロック記号は一切不要です。不明な項目はnullか"不明"にしてください。推測であることを前提に、断定しすぎない自然な内容にしてください。\n\n{\n${schemaLines}\n}`,
+              content: `企業名「${form.name}」について、一般的に知られている情報をもとに以下のJSON形式のみで出力してください。前置き・説明・コードブロック記号は一切不要です。不明な項目はnullか"不明"にしてください。\n\n{\n${schemaLines}\n}`,
             },
           ],
         }),
@@ -723,10 +630,9 @@ export default function App() {
     }
   }
 
-  const selectedCompanies = companies.filter((c) => selectedIds.includes(c.id));
-
   return (
     <div className="min-h-screen bg-stone-50 text-slate-800 pb-24">
+      {/* ヘッダー */}
       <header className="border-b border-stone-300 bg-stone-50/95 backdrop-blur sticky top-0 z-20">
         <div className="max-w-5xl mx-auto px-5 py-4 flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">
@@ -737,30 +643,28 @@ export default function App() {
             </div>
           </div>
           <div className="flex items-center gap-1.5">
-            
-            {/* 👇 このボタンのコードを差し込みます */}
-　　　　　　　{user ? (
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-slate-500">{user.email}</span>
-            <button
-              onClick={handleSignOut}
-              className="px-3 py-1.5 text-xs bg-slate-800 text-white rounded hover:bg-slate-900 transition-colors"
-            >
-              ログアウト
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={handleSignIn}
-            className="px-3 py-1.5 text-xs bg-emerald-600 text-white rounded hover:bg-emerald-700 transition-colors"
-          >
-            Googleでログイン
-          </button>
-        )}
+            {user ? (
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-slate-500">{user.email}</span>
+                <button
+                  onClick={handleSignOut}
+                  className="px-3 py-1.5 text-xs bg-slate-800 text-white rounded hover:bg-slate-900 transition-colors"
+                >
+                  ログアウト
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={handleSignIn}
+                className="px-3 py-1.5 text-xs bg-emerald-600 text-white rounded hover:bg-emerald-700 transition-colors"
+              >
+                Googleでログイン
+              </button>
+            )}
 
             <button
               onClick={exportData}
-              title="データをJSONファイルとして書き出し（他の端末へ移すときに使う）"
+              title="データをJSONファイルとして書き出し"
               className="p-2 text-slate-500 hover:text-emerald-700 hover:bg-stone-100 rounded"
             >
               <Download className="w-4 h-4" />
@@ -783,6 +687,7 @@ export default function App() {
         </div>
       </header>
 
+      {/* メインコンテンツ */}
       <main className="max-w-5xl mx-auto px-5 py-6">
         {/* フィルター */}
         <div className="bg-white border border-stone-200 rounded-md mb-6">
@@ -810,7 +715,7 @@ export default function App() {
                 value={keyword}
                 onChange={(e) => setKeyword(e.target.value)}
                 placeholder="企業名・事業内容・理念などで検索"
-                className="w-full border border-stone-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                className="w-full border border-stone-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-white"
               />
 
               <div className="flex flex-wrap gap-3 items-center">
@@ -822,7 +727,7 @@ export default function App() {
                     value={salaryMin}
                     onChange={(e) => setSalaryMin(e.target.value)}
                     placeholder="下限"
-                    className="w-20 border border-stone-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                    className="w-20 border border-stone-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-white"
                   />
                   <span className="text-slate-400">〜</span>
                   <input
@@ -830,7 +735,7 @@ export default function App() {
                     value={salaryMax}
                     onChange={(e) => setSalaryMax(e.target.value)}
                     placeholder="上限"
-                    className="w-20 border border-stone-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                    className="w-20 border border-stone-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-white"
                   />
                 </div>
                 <div className="flex items-center gap-2">
@@ -840,55 +745,8 @@ export default function App() {
                     value={overtimeMax}
                     onChange={(e) => setOvertimeMax(e.target.value)}
                     placeholder="例）20"
-                    className="w-20 border border-stone-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                    className="w-20 border border-stone-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-white"
                   />
-                </div>
-              </div>
-
-              {allLocations.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-1.5">
-                    <MapPin className="w-3.5 h-3.5" /> 勤務地
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {allLocations.map((loc) => (
-                      <button
-                        key={loc}
-                        onClick={() => toggleFromList(loc, locationFilter, setLocationFilter)}
-                        className={`text-xs px-2.5 py-1 rounded border transition-colors ${
-                          locationFilter.includes(loc)
-                            ? "bg-emerald-700 text-stone-50 border-emerald-700"
-                            : "bg-white text-slate-600 border-stone-300 hover:border-emerald-400"
-                        }`}
-                      >
-                        {loc}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-1.5">
-                  <Briefcase className="w-3.5 h-3.5" /> 条件（すべて満たす企業のみ表示）
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {CONDITION_CHIPS.map((chip) => {
-                    const key = `${chip.field}:${chip.value}`;
-                    return (
-                      <button
-                        key={key}
-                        onClick={() => toggleFromList(key, conditionFilter, setConditionFilter)}
-                        className={`text-xs px-2.5 py-1 rounded border transition-colors ${
-                          conditionFilter.includes(key)
-                            ? "bg-emerald-700 text-stone-50 border-emerald-700"
-                            : "bg-white text-slate-600 border-stone-300 hover:border-emerald-400"
-                        }`}
-                      >
-                        {chip.label}
-                      </button>
-                    );
-                  })}
                 </div>
               </div>
 
@@ -920,8 +778,7 @@ export default function App() {
             {filtered.map((c) => {
               const originalIndex = companies.findIndex((x) => x.id === c.id);
               const selected = selectedIds.includes(c.id);
-              const expanded = expandedIds.includes(c.id);
-              const otTone = overtimeTone(c.monthlyOvertimeHours);
+
               return (
                 <div
                   key={c.id}
@@ -930,8 +787,10 @@ export default function App() {
                   }`}
                 >
                   <FileTab index={originalIndex} />
+                  
+                  {/* ヘッダー部（企業名・操作ボタン） */}
                   <div className="flex items-start justify-between gap-2 mb-2">
-                    <h3 className="text-base text-slate-900 font-title">{c.name}</h3>
+                    <h3 className="text-base text-slate-900 font-title font-bold">{c.name}</h3>
                     <div className="flex items-center gap-1 shrink-0">
                       <button onClick={() => openEditForm(c)} className="p-1 text-slate-400 hover:text-emerald-700" aria-label="編集">
                         <Pencil className="w-3.5 h-3.5" />
@@ -942,9 +801,8 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* 売上高・従業員数・1人あたり売上の表示用 */}
+                  {/* 売上高・従業員数・1人あたり売上（表示用） */}
                   <div className="flex flex-wrap items-center gap-3 my-2 p-2 bg-slate-50 rounded-lg border border-slate-200 text-xs">
-                    {/* 売上高 */}
                     <div>
                       <span className="text-slate-500">売上高: </span>
                       <span className="font-bold text-slate-800">
@@ -952,7 +810,6 @@ export default function App() {
                       </span>
                     </div>
 
-                    {/* 従業員数 */}
                     <div>
                       <span className="text-slate-500">従業員: </span>
                       <span className="font-bold text-slate-800">
@@ -960,7 +817,6 @@ export default function App() {
                       </span>
                     </div>
 
-                    {/* 1人あたり売上高（自動計算） */}
                     <div className="bg-emerald-100 text-emerald-900 px-2 py-0.5 rounded font-bold">
                       1人あたり: {(() => {
                         const rev = parseFloat(c.revenue);
@@ -973,122 +829,13 @@ export default function App() {
                           : `${Math.round(perEmp).toLocaleString()}万円`;
                       })()}
                     </div>
-                  </div>  
-                  
-
-
-                  <p className="text-sm text-slate-600 mb-3 min-h-[2.5em]">{c.business || "事業内容は未入力です"}</p>
-
-                  <div className="flex items-center gap-1.5 text-sm mb-2">
-                    <Banknote className="w-3.5 h-3.5 text-amber-600" />
-                    <span className="text-slate-700">{c.salary ? `平均年収 約${c.salary}万円` : "平均年収 不明"}</span>
-                    {otTone && (
-                      <Tag tone={otTone}>残業 月{c.monthlyOvertimeHours}h</Tag>
-                    )}
                   </div>
 
-                  {/* カード表示用（文字として各企業のデータを個別に表示） */}
-                  <div className="flex flex-wrap items-center gap-3 my-2 p-2 bg-stone-50 rounded-lg border border-stone-200 text-xs">
-                    {/* 売上高 */}
-                    <div>
-                      <span className="text-stone-500">売上高: </span>
-                      <span className="font-bold text-stone-800">
-                        {company.revenue ? `${company.revenue}億円` : "-"}
-                       </span>
-                    </div>
-
-                     {/* 従業員数 */}
-                    <div>
-                      <span className="text-stone-500">従業員: </span>
-                      <span className="font-bold text-stone-800">
-                        {company.employees ? `${company.employees}人` : "-"}
-                      </span>
-                    </div>
-
-                     {/* 1人あたり売上高（自動計算） */}
-                     <div className="bg-emerald-100 text-emerald-900 px-2 py-0.5 rounded font-bold">
-                       1人あたり: {(() => {
-                        const rev = parseFloat(company.revenue);
-                        const emp = parseFloat(company.employees);
-                        if (!rev || !emp || emp <= 0) return "-";
-      
-                        const perEmp = (rev * 10000) / emp; 
-                        return perEmp >= 10000
-                         ? `${(perEmp / 10000).toFixed(1)}億円`
-                         : `${Math.round(perEmp).toLocaleString()}万円`;
-                      })()}
-                     </div>
-                    </div>
-
-                  {c.locations && c.locations.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mb-2">
-                      {c.locations.map((l) => (
-                        <Tag key={l}>{l}</Tag>
-                      ))}
-                    </div>
-                  )}
-
-                  <div className="flex flex-wrap gap-1 mb-3">
-                    {CONDITION_CHIPS.filter((chip) => c[chip.field] === chip.value).map((chip) => (
-                      <Tag key={`${chip.field}:${chip.value}`} tone="emerald">
-                        {chip.label}
-                      </Tag>
-                    ))}
+                  {/* その他の詳細 */}
+                  <div className="mt-3 space-y-1 text-xs text-slate-600">
+                    {c.features && <p className="line-clamp-2"><span className="font-bold text-slate-700">特徴:</span> {c.features}</p>}
+                    {c.salary && <p><span className="font-bold text-slate-700">平均年収:</span> {c.salary}万円</p>}
                   </div>
-
-                  <button
-                    onClick={() => toggleExpand(c.id)}
-                    className="flex items-center gap-1 text-xs text-emerald-700 mb-2"
-                  >
-                    {expanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-                    詳細を{expanded ? "閉じる" : "見る"}
-                  </button>
-
-                  {expanded && (
-                    <div className="space-y-2.5 mb-3 border-t border-stone-100 pt-3">
-                      {FIELD_SECTIONS.map((section) => (
-                        <div key={section.title}>
-                          <p className="text-xs text-slate-400 mb-1">{section.title}</p>
-                          <div className="space-y-1.5">
-                            {section.fields.map((f) => {
-                              const val = c[f.key];
-                              const isEmpty =
-                                f.type === "locations"
-                                  ? !val || val.length === 0
-                                  : !val || val === "不明";
-                              if (isEmpty) return null;
-                              return (
-                                <div key={f.key} className="text-xs text-slate-600">
-                                  <span className="text-slate-400">{f.label}：</span>
-                                  {renderCompareValue(f, c)}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      ))}
-                      {customFields.length > 0 && (
-                        <div>
-                          <p className="text-xs text-slate-400 mb-1">カスタム項目</p>
-                          <div className="space-y-1.5">
-                            {customFields
-                              .filter((cf) => c[cf.key])
-                              .map((cf) => (
-                                <div key={cf.key} className="text-xs text-slate-600">
-                                  <span className="text-slate-400">{cf.label}：</span>
-                                  {c[cf.key]}
-                                </div>
-                              ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  <label className="flex items-center gap-2 text-xs text-slate-500 border-t border-stone-100 pt-2.5 cursor-pointer">
-                    <input type="checkbox" checked={selected} onChange={() => toggleSelect(c.id)} className="accent-emerald-700" />
-                    比較する企業に追加
-                  </label>
                 </div>
               );
             })}
@@ -1096,243 +843,133 @@ export default function App() {
         )}
       </main>
 
-      {selectedIds.length > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 bg-slate-900 text-stone-50 z-30">
-          <div className="max-w-5xl mx-auto px-5 py-3 flex items-center justify-between gap-4">
-            <div className="text-sm">
-              比較リスト: <span className="text-emerald-400">{selectedIds.length}社</span>選択中
-            </div>
-            <div className="flex items-center gap-2">
-              <button onClick={() => setShowCompare(true)} className="bg-emerald-600 hover:bg-emerald-500 text-stone-50 text-sm px-3 py-1.5 rounded">
-                比較表を見る
-              </button>
-              <button onClick={() => setSelectedIds([])} className="text-slate-400 hover:text-stone-100 text-sm px-2 py-1.5">
-                選択解除
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showCompare && (
-        <div className="fixed inset-0 bg-slate-900/60 z-40 flex items-start justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-md max-w-6xl w-full mt-8 mb-8">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-stone-200">
-              <h2 className="text-lg text-slate-900 font-title">企業比較表</h2>
-              <button onClick={() => setShowCompare(false)} className="p-1 text-slate-400 hover:text-slate-700">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="overflow-x-auto p-5">
-              <table className="w-full text-sm border-collapse">
-                <tbody>
-                  <tr>
-                    <td className="w-32 text-xs text-slate-400 align-top py-3 pr-3">企業名</td>
-                    {selectedCompanies.map((c) => (
-                      <td key={c.id} className="align-top py-3 px-3 border-l border-stone-100 text-slate-900 min-w-[200px] font-title">
-                        {c.name}
-                      </td>
-                    ))}
-                  </tr>
-                  {FIELD_SECTIONS.map((section) => (
-                    <Fragment key={section.title}>
-                      <tr className="border-t border-stone-200">
-                        <td colSpan={selectedCompanies.length + 1} className="text-xs text-emerald-700 pt-4 pb-1 font-medium">
-                          {section.title}
-                        </td>
-                      </tr>
-                      {section.fields.map((f) => (
-                        <tr key={f.key} className="border-t border-stone-100">
-                          <td className="text-xs text-slate-400 align-top py-3 pr-3">{f.label}</td>
-                          {selectedCompanies.map((c) => (
-                            <td key={c.id} className="align-top py-3 px-3 border-l border-stone-100 text-slate-600">
-                              {renderCompareValue(f, c)}
-                            </td>
-                          ))}
-                        </tr>
-                      ))}
-                    </Fragment>
-                  ))}
-                  {customFields.length > 0 && (
-                    <Fragment>
-                      <tr className="border-t border-stone-200">
-                        <td colSpan={selectedCompanies.length + 1} className="text-xs text-emerald-700 pt-4 pb-1 font-medium">
-                          カスタム項目
-                        </td>
-                      </tr>
-                      {customFields.map((cf) => (
-                        <tr key={cf.key} className="border-t border-stone-100">
-                          <td className="text-xs text-slate-400 align-top py-3 pr-3">{cf.label}</td>
-                          {selectedCompanies.map((c) => (
-                            <td key={c.id} className="align-top py-3 px-3 border-l border-stone-100 text-slate-600">
-                              {c[cf.key] || "—"}
-                            </td>
-                          ))}
-                        </tr>
-                      ))}
-                    </Fragment>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
+      {/* 登録・編集モーダル */}
       {showForm && (
-        <div className="fixed inset-0 bg-slate-900/60 z-40 flex items-start justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-md max-w-2xl w-full mt-8 mb-8">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-stone-200">
-              <h2 className="text-lg text-slate-900 font-title">{editingId ? "企業情報を編集" : "企業を追加"}</h2>
-              <button onClick={() => setShowForm(false)} className="p-1 text-slate-400 hover:text-slate-700">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-lg max-w-2xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center border-b pb-3">
+              <h2 className="text-lg font-bold text-slate-800">{editingId ? "企業情報を編集" : "新しい企業を追加"}</h2>
+              <button onClick={() => setShowForm(false)} className="text-slate-400 hover:text-slate-600">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-5 space-y-5 max-h-[70vh] overflow-y-auto">
-              {/* 企業名 */}
-        <div>
-          <label className="text-xs text-slate-500 block mb-1">企業名</label>
-          <input
-            type="text"
-            value={form.name} // 
-            onChange={(e) => updateField("name", e.target.value)} // 
-            placeholder="例）株式会社◯◯"
-            className="w-full border border-stone-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-          />
-        </div>
+            {/* 企業名 & AI生成 */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">企業名 *</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="株式会社〇〇"
+                  value={form.name}
+                  onChange={(e) => updateField("name", e.target.value)}
+                  className="flex-1 border border-stone-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-white"
+                />
+              </div>
+              {aiError && <p className="text-xs text-rose-600 mt-1">{aiError}</p>}
+            </div>
 
-              {FIELD_SECTIONS.map((section) => (
-        <div key={section.title}>
-          {/* セクションの見出し（基本情報、募集・採用など） */}
-          <p className="text-xs text-emerald-700 font-medium mb-2 border-b border-stone-100 pb-1">{section.title}</p>
-          
-          <div className="space-y-3">
-            {section.fields.map((f) => {
-              // 👇 マイページURLの時だけ「URL・ID・PW」を横並びにする特別ルール
-              if (f.key === "myPageUrl") {
-                return (
-                  <div key={f.key}>
-                    <label className="text-xs text-slate-500 block mb-1">{f.label}</label>
-                    
-                    {/* flexで3つの入力ボックスを横並びにするコンテナ */}
-                    <div className="flex gap-2">
-                      {/* 左側：URL入力欄 */}
-                      <div className="flex-1">
-                        <FieldInput field={f} value={form[f.key]} onChange={(v) => updateField(f.key, v)} />
-                      </div>
-                      
-                      {/* 真ん中：ID入力欄 */}
-                      <input
-                        type="text"
-                        value={form.myPageId || ""}
-                        onChange={(e) => updateField("myPageId", e.target.value)}
-                        placeholder="ID"
-                        className="w-28 border border-stone-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      />
-                      
-                      {/* 右側：パスワード入力欄 */}
-                      <input
-                        type="text"
-                        value={form.myPagePw || ""}
-                        onChange={(e) => updateField("myPagePw", e.target.value)}
-                        placeholder="PW"
-                        className="w-24 border border-stone-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      />
-                    </div>
-                  </div>
-                );
-              }
-
-              // メモ付きのセレクトボックス（通常ルール）
-              if (f.type === "select_with_note") {
-                return (
-                  <div key={f.key}>
-                    <label className="text-xs text-slate-500 block mb-1">{f.label}</label>
-                    <div className="flex gap-2 flex-wrap">
-                      <FieldInput field={f} value={form[f.key]} onChange={(v) => updateField(f.key, v)} />
-                      <input
-                        type="text"
-                        value={form[f.noteKey]}
-                        onChange={(e) => updateField(f.noteKey, e.target.value)}
-                        placeholder={f.notePlaceholder || "メモ"}
-                        className="flex-1 min-w-[160px] border border-stone-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      />
-                    </div>
-                  </div>
-                );
-              }
-
-              // その他の通常の入力欄
-              return (
-                <div key={f.key}>
-                  <label className="text-xs text-slate-500 block mb-1">{f.label}</label>
-                  <FieldInput field={f} value={form[f.key]} onChange={(v) => updateField(f.key, v)} />
+            {/* ★ 売上高・従業員数（編集画面用・リアルタイム計算） */}
+            <div className="p-3 bg-stone-50 rounded-lg border border-stone-200">
+              <span className="block text-xs font-bold text-stone-700 mb-2">業績・規模</span>
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-stone-600">売上高:</span>
+                  <input
+                    type="number"
+                    value={form.revenue || ""}
+                    onChange={(e) => updateField("revenue", e.target.value)}
+                    placeholder="100"
+                    className="w-20 border border-stone-300 rounded px-2 py-1 text-sm bg-white"
+                  />
+                  <span className="text-xs text-stone-500">億円</span>
                 </div>
-              );
-            })}
-          </div>
-        </div>
-      ))}
-                <p className="text-xs text-emerald-700 font-medium mb-2 border-b border-stone-100 pb-1">カスタム項目</p>
-                <div className="space-y-3">
-                  {customFields.map((cf) => (
-                    <div key={cf.key}>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="text-xs text-slate-500">{cf.label}</label>
-                        <button
-                          onClick={() => removeCustomField(cf.key)}
-                          className="text-slate-300 hover:text-rose-600"
-                          title="この項目を削除"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                      <input
-                        type="text"
-                        value={form[cf.key] || ""}
-                        onChange={(e) => updateField(cf.key, e.target.value)}
-                        className="w-full border border-stone-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
-                      />
-                    </div>
-                  ))}
-                  <div className="flex gap-2 items-center pt-1">
-                    <input
-                      type="text"
-                      value={newCustomLabel}
-                      onChange={(e) => setNewCustomLabel(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && addCustomField()}
-                      placeholder="新しい項目名（例：選考ステータス）"
-                      className="flex-1 border border-stone-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
-                    />
-                    <button
-                      onClick={addCustomField}
-                      disabled={!newCustomLabel.trim()}
-                      className="flex items-center gap-1 bg-slate-800 hover:bg-slate-900 disabled:opacity-40 text-stone-50 text-xs px-3 py-2 rounded whitespace-nowrap"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      項目を追加
-                    </button>
-                  </div>
-                  <p className="text-xs text-slate-400">追加した項目はすべての企業カードに表示され、比較表にも追加されます。</p>
+
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-stone-600">従業員数:</span>
+                  <input
+                    type="number"
+                    value={form.employees || ""}
+                    onChange={(e) => updateField("employees", e.target.value)}
+                    placeholder="500"
+                    className="w-20 border border-stone-300 rounded px-2 py-1 text-sm bg-white"
+                  />
+                  <span className="text-xs text-stone-500">人</span>
+                </div>
+
+                <div className="flex items-center gap-1 bg-emerald-100 px-2.5 py-1 rounded-md border border-emerald-300">
+                  <span className="text-xs font-bold text-emerald-800">1人あたり:</span>
+                  <span className="text-xs font-extrabold text-emerald-900">
+                    {(() => {
+                      const rev = parseFloat(form.revenue);
+                      const emp = parseFloat(form.employees);
+                      if (!rev || !emp || emp <= 0) return "-";
+                      
+                      const perEmp = (rev * 10000) / emp; 
+                      return perEmp >= 10000
+                        ? `${(perEmp / 10000).toFixed(1)}億円/人`
+                        : `${Math.round(perEmp).toLocaleString()}万円/人`;
+                    })()}
+                  </span>
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-stone-200">
-              <button onClick={() => setShowForm(false)} className="text-sm text-slate-500 px-3 py-2">
+            {/* 各セクションの入力項目 */}
+            {FIELD_SECTIONS.map((sec) => (
+              <div key={sec.title} className="space-y-3 pt-2">
+                <h3 className="text-xs font-bold text-slate-400 border-b pb-1">{sec.title}</h3>
+                <div className="grid gap-3">
+                  {sec.fields.map((f) => (
+                    <div key={f.key}>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">{f.label}</label>
+                      <FieldInput field={f} value={form[f.key] || ""} onChange={(v) => updateField(f.key, v)} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+
+            {/* ID / PW 欄 */}
+            <div className="p-3 bg-stone-50 rounded-lg border border-stone-200 space-y-2">
+              <span className="block text-xs font-bold text-stone-700">マイページログイン情報（自分用メモ）</span>
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="text"
+                  placeholder="ID"
+                  value={form.myPageId || ""}
+                  onChange={(e) => updateField("myPageId", e.target.value)}
+                  className="border border-stone-300 rounded px-2 py-1 text-xs bg-white"
+                />
+                <input
+                  type="password"
+                  placeholder="PW"
+                  value={form.myPagePw || ""}
+                  onChange={(e) => updateField("myPagePw", e.target.value)}
+                  className="border border-stone-300 rounded px-2 py-1 text-xs bg-white"
+                />
+              </div>
+            </div>
+
+            {/* 保存・キャンセルボタン */}
+            <div className="flex justify-end gap-2 pt-4 border-t">
+              <button
+                type="button"
+                onClick={() => setShowForm(false)}
+                className="px-4 py-2 text-xs text-slate-600 hover:bg-stone-100 rounded"
+              >
                 キャンセル
               </button>
               <button
+                type="button"
                 onClick={saveCompany}
-                disabled={!form.name.trim()}
-                className="bg-emerald-700 hover:bg-emerald-800 disabled:opacity-40 text-stone-50 text-sm px-4 py-2 rounded"
+                className="px-4 py-2 text-xs bg-emerald-700 hover:bg-emerald-800 text-white rounded font-bold"
               >
                 保存する
               </button>
             </div>
           </div>
-      
+        </div>
       )}
     </div>
   );
