@@ -804,7 +804,7 @@ export default function App() {
                   {/* 売上高・従業員数・1人あたり売上（数値でない文字列は自動ガードしてハイフン表示） */}
                   <div className="flex flex-wrap items-center gap-3 my-2 p-2 bg-slate-50 rounded-lg border border-slate-200 text-xs">
                     <div>
-                      <span className="text-slate-500">売上高: </span>
+                      <span className="text-slate-500">利益: </span>
                       <span className="font-bold text-slate-800">
                         {isValidNumber(c.revenue) ? `${c.revenue}億円` : "-"}
                       </span>
