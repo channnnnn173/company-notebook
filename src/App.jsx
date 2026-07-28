@@ -940,15 +940,6 @@ export default function App() {
                   onChange={(e) => updateField("name", e.target.value)}
                   className="flex-1 border border-stone-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-white"
                 />
-                <button
-                  type="button"
-                  onClick={generateWithAi}
-                  disabled={aiLoading || !form.name.trim()}
-                  className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded text-xs flex items-center gap-1 disabled:opacity-50 transition-colors"
-                >
-                  {aiLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                  AIで補完
-                </button>
               </div>
               {aiError && <p className="text-xs text-rose-600 mt-1">{aiError}</p>}
             </div>
