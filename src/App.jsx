@@ -13,20 +13,20 @@ import {
   ChevronDown,
   Download,
   Upload,
+  SlidersHorizontal,
 } from "lucide-react";
 
 // ★ Supabase クライアントのインポート
 import { supabase } from "./supabaseClient";
 
 // ---------------------------------------------------------------------------
-// ヘルパー関数（データのクリーニング用）
+// ヘルパー関数
 // ---------------------------------------------------------------------------
 function isValidNumber(val) {
   if (val === null || val === undefined || val === "") return false;
   return !isNaN(Number(val));
 }
 
-// 過去のバグでIDが売上高に入ってしまっているデータを除外する処理
 function cleanCompanyData(data) {
   const cleaned = { ...data };
   if (cleaned.revenue && (!isValidNumber(cleaned.revenue) || cleaned.revenue === cleaned.myPageId)) {
@@ -81,7 +81,7 @@ const FIELD_SECTIONS = [
   {
     title: "働き方",
     fields: [
-      { key: "locations", label: "勤務地（読点区切りで複数可）", type: "locations" },
+      { key: "locations", label: "勤務地", type: "locations" },
       {
         key: "noTransfer",
         label: "転勤の有無",
@@ -94,7 +94,7 @@ const FIELD_SECTIONS = [
         type: "select_with_note",
         options: ["不明", "あり", "なし"],
         noteKey: "overseasWorkNote",
-        notePlaceholder: "メモ（例：希望者のみ、拠点名 など）",
+        notePlaceholder: "メモ",
       },
       {
         key: "remoteWork",
@@ -121,10 +121,10 @@ const FIELD_SECTIONS = [
     title: "募集・採用",
     fields: [
       { key: "jobType", label: "希望職種・募集職種", type: "textarea" },
-      { key: "requiredTalent", label: "求められる人材/向いている人", type: "textarea" },
+      { key: "requiredTalent", label: "求められる人材", type: "textarea" },
       {
         key: "noExperienceOk",
-        label: "未経験でも〇か",
+        label: "未経験可否",
         type: "select",
         options: ["不明", "可", "条件付きで可", "不可"],
       },
@@ -133,14 +133,13 @@ const FIELD_SECTIONS = [
         key: "recruitmentInfo",
         label: "採用情報",
         type: "textarea",
-        placeholder: "募集人数、選考フロー、応募資格など",
+        placeholder: "選考フロー等",
       },
       {
         key: "myPageUrl",
         label: "マイページURL",
         type: "url",
         personal: true,
-        placeholder: "https://...",
       },
     ],
   },
@@ -158,6 +157,9 @@ const CONDITION_CHIPS = [
 
 const ALL_FIELDS = FIELD_SECTIONS.flatMap((s) => s.fields);
 const CUSTOM_FIELDS_STORAGE_KEY = "company-notebook:custom-fields:v1";
+
+// カードに表示する初期設定項目
+const DEFAULT_VISIBLE_FIELDS = ["features", "business", "salary", "locations", "remoteWork", "monthlyOvertimeHours"];
 
 function emptyForm() {
   const initial = { name: "" };
@@ -268,6 +270,10 @@ export default function App() {
   const [aiError, setAiError] = useState("");
   const [user, setUser] = useState(null);
 
+  // カードに表示する項目の管理
+  const [visibleKeys, setVisibleKeys] = useState(DEFAULT_VISIBLE_FIELDS);
+  const [showDisplaySettings, setShowDisplaySettings] = useState(false);
+
   const [keyword, setKeyword] = useState("");
   const [locationFilter, setLocationFilter] = useState([]);
   const [conditionFilter, setConditionFilter] = useState([]);
@@ -289,7 +295,7 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Supabase & LocalStorage データ読み込み（自動クリーニング付き）
+  // Supabase データ読み込み
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -339,12 +345,19 @@ export default function App() {
     }
   }, [customFields, loaded]);
 
-  // 追加項目の操作関数
+  // 表示項目のトグル制御
+  function toggleVisibleKey(key) {
+    setVisibleKeys((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+    );
+  }
+
   function addCustomField() {
     if (!newCustomLabel.trim()) return;
     const key = `custom_${Date.now()}`;
     const newField = { key, label: newCustomLabel.trim() };
     setCustomFields((prev) => [...prev, newField]);
+    setVisibleKeys((prev) => [...prev, key]); // 追加した項目は自動で表示対象に
     setNewCustomLabel("");
   }
 
@@ -461,7 +474,6 @@ export default function App() {
     f.myPageId = company.myPageId ?? company.data?.myPageId ?? "";
     f.myPagePw = company.myPagePw ?? company.data?.myPagePw ?? "";
 
-    // 数値以外（ID等）が入っている場合は空文字にリセット
     const rawRevenue = company.revenue ?? company.data?.revenue ?? "";
     f.revenue = isValidNumber(rawRevenue) ? String(rawRevenue) : "";
 
@@ -507,7 +519,6 @@ export default function App() {
         if (field.noteKey) payloadFields[field.noteKey] = form[field.noteKey] ?? "";
       });
 
-      // 完全に独立して代入
       payloadFields.myPageId = form.myPageId || "";
       payloadFields.myPagePw = form.myPagePw || "";
       payloadFields.revenue = isValidNumber(form.revenue) ? String(form.revenue) : "";
@@ -633,6 +644,12 @@ export default function App() {
     }
   }
 
+  // 表示項目として選択可能な全リスト
+  const ALL_DISPLAY_OPTIONS = [
+    ...ALL_FIELDS.map((f) => ({ key: f.key, label: f.label, unit: f.unit })),
+    ...customFields.map((cf) => ({ key: cf.key, label: cf.label })),
+  ];
+
   return (
     <div className="min-h-screen bg-stone-50 text-slate-800 pb-24">
       {/* ヘッダー */}
@@ -692,6 +709,45 @@ export default function App() {
 
       {/* メインコンテンツ */}
       <main className="max-w-5xl mx-auto px-5 py-6">
+
+        {/* 🎛 表（カード）に出す項目のカスタマイズ設定パネル */}
+        <div className="bg-white border border-stone-200 rounded-md mb-4 p-3 shadow-sm">
+          <button
+            onClick={() => setShowDisplaySettings((s) => !s)}
+            className="flex items-center justify-between w-full text-xs font-bold text-slate-700"
+          >
+            <span className="flex items-center gap-1.5 text-emerald-800">
+              <SlidersHorizontal className="w-4 h-4" />
+              表（カード）に表示する項目を設定・変更する
+            </span>
+            <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${showDisplaySettings ? "rotate-180" : ""}`} />
+          </button>
+
+          {showDisplaySettings && (
+            <div className="mt-3 pt-3 border-t border-stone-100 space-y-2">
+              <p className="text-xs text-slate-500">チェックを入れた項目が企業カード上に表示されます。</p>
+              <div className="flex flex-wrap gap-2 pt-1">
+                {ALL_DISPLAY_OPTIONS.map((opt) => {
+                  const active = visibleKeys.includes(opt.key);
+                  return (
+                    <button
+                      key={opt.key}
+                      onClick={() => toggleVisibleKey(opt.key)}
+                      className={`text-xs px-2.5 py-1 rounded border transition-colors ${
+                        active
+                          ? "bg-emerald-700 text-white border-emerald-700 font-semibold"
+                          : "bg-stone-100 text-slate-600 border-stone-200 hover:bg-stone-200"
+                      }`}
+                    >
+                      {active ? "✓ " : "+ "}{opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* フィルター */}
         <div className="bg-white border border-stone-200 rounded-md mb-6">
           <button
@@ -784,12 +840,12 @@ export default function App() {
               return (
                 <div
                   key={c.id}
-                  className="relative bg-white border border-stone-200 rounded-md pt-5 pb-4 px-4 transition-shadow"
+                  className="relative bg-white border border-stone-200 rounded-md pt-5 pb-4 px-4 transition-shadow space-y-3"
                 >
                   <FileTab index={originalIndex} />
                   
                   {/* ヘッダー部（企業名・操作ボタン） */}
-                  <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="flex items-start justify-between gap-2">
                     <h3 className="text-base text-slate-900 font-title font-bold">{c.name}</h3>
                     <div className="flex items-center gap-1 shrink-0">
                       <button onClick={() => openEditForm(c)} className="p-1 text-slate-400 hover:text-emerald-700" aria-label="編集">
@@ -801,10 +857,10 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* 売上高・従業員数・1人あたり売上（数値でない文字列は自動ガードしてハイフン表示） */}
-                  <div className="flex flex-wrap items-center gap-3 my-2 p-2 bg-slate-50 rounded-lg border border-slate-200 text-xs">
+                  {/* 売上高・従業員数・1人あたり売上 */}
+                  <div className="flex flex-wrap items-center gap-3 p-2 bg-slate-50 rounded-lg border border-slate-200 text-xs">
                     <div>
-                      <span className="text-slate-500">利益: </span>
+                      <span className="text-slate-500">売上高: </span>
                       <span className="font-bold text-slate-800">
                         {isValidNumber(c.revenue) ? `${c.revenue}億円` : "-"}
                       </span>
@@ -832,26 +888,21 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* その他の詳細 */}
-                  <div className="mt-3 space-y-1 text-xs text-slate-600">
-                    {c.features && <p className="line-clamp-2"><span className="font-bold text-slate-700">特徴:</span> {c.features}</p>}
-                    {c.salary && <p><span className="font-bold text-slate-700">平均年収:</span> {c.salary}万円</p>}
-                  </div>
+                  {/* ★ 選択された表示項目のダイナミックレンダリング */}
+                  <div className="space-y-1.5 text-xs text-slate-600 pt-1 border-t border-stone-100">
+                    {ALL_DISPLAY_OPTIONS.filter((opt) => visibleKeys.includes(opt.key)).map((opt) => {
+                      let rawVal = c[opt.key];
+                      if (Array.isArray(rawVal)) rawVal = rawVal.join("、");
+                      if (!rawVal) return null;
 
-                  {/* ★ カスタム追加項目のカード表示 */}
-                  {customFields.some((cf) => c[cf.key]) && (
-                    <div className="mt-2 pt-2 border-t border-stone-100 grid grid-cols-2 gap-1 text-xs">
-                      {customFields.map((cf) => {
-                        if (!c[cf.key]) return null;
-                        return (
-                          <div key={cf.key} className="text-slate-600">
-                            <span className="font-bold text-slate-700">{cf.label}: </span>
-                            <span>{c[cf.key]}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
+                      return (
+                        <div key={opt.key} className="line-clamp-3">
+                          <span className="font-bold text-slate-700">{opt.label}: </span>
+                          <span>{rawVal}{opt.unit ? opt.unit : ""}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
 
                   {/* マイページ情報 */}
                   {(c.myPageId || c.myPagePw) && (
@@ -889,6 +940,15 @@ export default function App() {
                   onChange={(e) => updateField("name", e.target.value)}
                   className="flex-1 border border-stone-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-white"
                 />
+                <button
+                  type="button"
+                  onClick={generateWithAi}
+                  disabled={aiLoading || !form.name.trim()}
+                  className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded text-xs flex items-center gap-1 disabled:opacity-50 transition-colors"
+                >
+                  {aiLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                  AIで補完
+                </button>
               </div>
               {aiError && <p className="text-xs text-rose-600 mt-1">{aiError}</p>}
             </div>
@@ -955,7 +1015,7 @@ export default function App() {
               </div>
             ))}
 
-            {/* ★ 独自追加項目セクション */}
+            {/* 独自追加項目セクション */}
             <div className="p-3 bg-stone-50 rounded-lg border border-stone-200 space-y-3">
               <span className="text-xs font-bold text-stone-700 block">独自追加項目</span>
 
